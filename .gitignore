@@ -1,0 +1,6 @@
+.DS_Store
+DerivedData*/
+build/
+*.xcuserstate
+xcuserdata/
+design-qa.md

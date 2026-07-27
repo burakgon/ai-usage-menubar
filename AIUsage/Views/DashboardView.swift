@@ -1,0 +1,183 @@
+import AppKit
+import SwiftUI
+
+struct DashboardView: View {
+    @Bindable var store: UsageStore
+    @Bindable var launchAtLogin: LaunchAtLoginController
+    @Binding var menuBarSelection: MenuBarSelection
+
+    var body: some View {
+        GlassEffectContainer(spacing: 10) {
+            DashboardContentView(store: store)
+                .safeAreaBar(edge: .bottom, spacing: 0) {
+                    footer
+                }
+        }
+        .frame(width: 392)
+        .onAppear {
+            store.start()
+            launchAtLogin.synchronize()
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: freshnessSymbol)
+                    .foregroundStyle(freshnessTint)
+
+                Group {
+                    if let updated = store.lastSuccessfulRefreshAt {
+                        HStack(spacing: 3) {
+                            Text("Updated")
+                            Text(updated, style: .relative)
+                        }
+                    } else if store.lastAttemptAt != nil {
+                        Text("Not updated")
+                    } else {
+                        Text("Waiting to refresh")
+                    }
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                store.refreshNow()
+            } label: {
+                RefreshButtonLabel(isRefreshing: isRefreshing)
+            }
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.small)
+            .help(isRefreshing ? "Refreshing usage" : "Refresh now")
+            .disabled(isRefreshing)
+
+            Menu {
+                Picker("Menu Bar", selection: $menuBarSelection) {
+                    ForEach(MenuBarSelection.allCases) { option in
+                        Label {
+                            Text(option.title)
+                        } icon: {
+                            if let provider = option.provider {
+                                ProviderIcon(provider: provider, size: 13)
+                            } else {
+                                Image(systemName: "gauge.with.dots.needle.50percent")
+                            }
+                        }
+                        .tag(option)
+                    }
+                }
+
+                Divider()
+
+                Toggle(
+                    "Launch at Login",
+                    isOn: Binding(
+                        get: { launchAtLogin.isEnabled },
+                        set: { launchAtLogin.setEnabled($0) }
+                    )
+                )
+
+                if launchAtLogin.requiresApproval {
+                    Text("Approval needed in System Settings")
+                }
+                if let error = launchAtLogin.errorMessage {
+                    Text(error)
+                }
+
+                Divider()
+
+                Link(destination: AppLinks.repository) {
+                    Label("Star AI Usage on GitHub", systemImage: "star")
+                }
+
+                Button("Quit AI Usage") {
+                    NSApplication.shared.terminate(nil)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "gearshape")
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.semibold))
+                }
+            }
+            .menuStyle(.button)
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .help("Settings")
+        }
+        .padding(.leading, 12)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .padding(.horizontal, 10)
+        .padding(.top, 4)
+        .padding(.bottom, 7)
+    }
+
+    private var freshnessSymbol: String {
+        store.lastSuccessfulRefreshAt == nil ? "clock" : "checkmark.circle.fill"
+    }
+
+    private var freshnessTint: Color {
+        store.lastSuccessfulRefreshAt == nil ? .secondary : UsagePalette.success
+    }
+
+    private var isRefreshing: Bool {
+        store.states.values.contains(where: \.isRefreshing)
+    }
+}
+
+struct RefreshButtonLabel: View {
+    static let size: CGFloat = 14
+
+    let isRefreshing: Bool
+
+    var body: some View {
+        ZStack {
+            if isRefreshing {
+                ProgressView()
+                    .controlSize(.mini)
+            } else {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .accessibilityLabel(isRefreshing ? "Refreshing usage" : "Refresh now")
+    }
+}
+
+struct DashboardContentView: View {
+    @Bindable var store: UsageStore
+
+    var body: some View {
+        VStack(spacing: 8) {
+            header
+            ForEach(ProviderID.allCases) { provider in
+                if let state = store.states[provider] {
+                    ProviderSectionView(state: state)
+                }
+            }
+        }
+        .padding([.horizontal, .top], 10)
+        .padding(.bottom, 6)
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "gauge.with.dots.needle.50percent")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(UsagePalette.accent)
+            Text("AI Usage")
+                .font(.headline.weight(.semibold))
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+        .frame(height: 28)
+    }
+}
