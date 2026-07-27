@@ -6,6 +6,31 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.6</title>
+            <pubDate>Mon, 27 Jul 2026 23:51:41 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.6
+
+This release eliminates sustained CPU usage while the menu bar panel is closed.
+
+- Replace the permanently hosted SwiftUI menu bar window with a native AppKit
+  status item.
+- Create the Liquid Glass dashboard only when it is opened, then release its
+  complete SwiftUI hosting tree when the panel closes.
+- Keep menu bar percentages, monochrome provider icons, stale-state warnings,
+  accessibility labels, and saved preferences unchanged.
+- Preserve the existing compact panel design in light mode, dark mode, and
+  Reduce Transparency.
+
+The result is a lighter idle app without changing Claude Code, Codex, refresh,
+launch-at-login, or signed update behavior.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.6/AI-Usage.dmg" length="3472542" type="application/octet-stream" sparkle:edSignature="V5UcSkPFSU2RbgFsWMxbPo3Dk0ID1tk+Lzzfirc9PJLJOcWOYPAEn2M4vjKZ+P+SXZCFBWbNiAN0Zynb0hFXAw=="/>
+        </item>
+        <item>
             <title>0.1.5</title>
             <pubDate>Mon, 27 Jul 2026 16:58:23 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -104,32 +129,9 @@ preferences.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.2/AI-Usage.dmg" length="3422710" type="application/octet-stream" sparkle:edSignature="eCsr36PG4BaIlUwxB8ZgDG3NTcvg+VDTi1as6dEgMf5oSeYA6dQCdc3VcXgZU6hd9NfkZAar62DEJqtD2ZgVAg=="/>
         </item>
-        <item>
-            <title>0.1.1</title>
-            <pubDate>Mon, 27 Jul 2026 11:02:10 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.1
-
-This release fixes startup for the current ad-hoc signed distribution.
-
-Sparkle's embedded framework has its own code signature. Hardened Runtime
-library validation rejected that framework when the host app had only an
-ad-hoc signature, causing version 0.1.0 to exit before showing its menu bar
-item. Version 0.1.1 disables Hardened Runtime only for the unsigned fallback
-build. Developer ID signed releases continue to use Hardened Runtime and can
-be notarized normally.
-
-All Claude Code, Codex, Liquid Glass, Launch at Login, and signed OTA features
-from 0.1.0 are unchanged.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.1/AI-Usage.dmg" length="3347188" type="application/octet-stream" sparkle:edSignature="wug+gv8p5QMmvzqLbBVCj1duAbgg1/5gfeIh4BFYS4byact09KJjxTOx5dZXs2Np5jo0h97mpu52cxSSDUACDQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: v7wJUWKWy/MnjqEepPQV0dd6OyJpLfNnpXM0bgHkGSrwl0UVd3/AfMHVH9CdcvTqK7X+OvUbanQrCtDscSfPDQ==
-length: 7327
+edSignature: d7L9GaQQE5j1UeDRkMXp/1+EjBpigosJ1zPLs1yUrzoXvl6Oy91DRFmmI8PH6lWnfxKFnjmBa9E4bi8ZLJKUDQ==
+length: 7412
 -->
