@@ -4,10 +4,6 @@ import SwiftUI
 struct ProviderSectionView: View {
     let state: ProviderState
     let displayMode: UsageDisplayMode
-    private let columns = [
-        GridItem(.flexible(), spacing: 0),
-        GridItem(.flexible(), spacing: 0)
-    ]
 
     init(
         state: ProviderState,
@@ -21,54 +17,33 @@ struct ProviderSectionView: View {
         VStack(alignment: .leading, spacing: 0) {
             providerHeader
             if let snapshot = state.snapshot, !snapshot.windows.isEmpty {
-                let rowCount = (snapshot.windows.count + 1) / 2
-                LazyVGrid(columns: columns, spacing: 0) {
-                    ForEach(Array(snapshot.windows.enumerated()), id: \.element.id) { index, window in
-                        QuotaTile(window: window, displayMode: displayMode)
-                            .overlay(alignment: .trailing) {
-                                if index.isMultiple(of: 2), index + 1 < snapshot.windows.count {
-                                    Color(nsColor: .separatorColor)
-                                        .opacity(0.42)
-                                        .frame(width: 0.5)
-                                        .padding(.vertical, 6)
-                                }
-                            }
-                            .overlay(alignment: .bottom) {
-                                if index / 2 < rowCount - 1 {
-                                    Color(nsColor: .separatorColor)
-                                        .opacity(0.42)
-                                        .frame(height: 0.5)
-                                        .padding(.horizontal, 6)
-                                }
-                            }
-                    }
-                }
+                QuotaGrid(
+                    windows: snapshot.windows,
+                    displayMode: displayMode
+                )
                 .padding(.horizontal, 10)
                 .padding(.bottom, 6)
             } else if state.isRefreshing {
-                Text("Checking local login…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 14)
+                ProviderStatusRow(
+                    message: "Checking local login…",
+                    showsProgress: true
+                )
             } else if let failure = state.failure {
                 FailureRow(failure: failure)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
             } else {
-                Text("No quota data yet.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 14)
+                ProviderStatusRow(
+                    message: "No quota data yet.",
+                    systemImage: "chart.bar.xaxis"
+                )
             }
 
             if state.isStale, let failure = state.failure {
                 Label(failure.message, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption2)
                     .foregroundStyle(UsagePalette.warning)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .help(failure.message)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
@@ -80,7 +55,7 @@ struct ProviderSectionView: View {
     private var providerHeader: some View {
         HStack(spacing: 9) {
             ProviderIcon(provider: state.provider, size: 18)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
                 .frame(width: 18, height: 18)
 
             Text(state.provider.displayName)
@@ -96,11 +71,48 @@ struct ProviderSectionView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .glassEffect(.clear, in: .capsule)
+                    .accessibilityLabel("Plan \(plan)")
             }
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 6)
+    }
+}
+
+private struct QuotaGrid: View {
+    let windows: [QuotaWindow]
+    let displayMode: UsageDisplayMode
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+                HStack(spacing: 0) {
+                    ForEach(Array(row.enumerated()), id: \.element.id) { columnIndex, window in
+                        QuotaTile(window: window, displayMode: displayMode)
+
+                        if columnIndex == 0, row.count == 2 {
+                            Color(nsColor: .separatorColor)
+                                .opacity(0.42)
+                                .frame(width: 0.5, height: 48)
+                        }
+                    }
+                }
+
+                if rowIndex < rows.count - 1 {
+                    Color(nsColor: .separatorColor)
+                        .opacity(0.42)
+                        .frame(height: 0.5)
+                        .padding(.horizontal, 6)
+                }
+            }
+        }
+    }
+
+    private var rows: [[QuotaWindow]] {
+        stride(from: 0, to: windows.count, by: 2).map { index in
+            Array(windows[index..<min(index + 2, windows.count)])
+        }
     }
 }
 
@@ -119,7 +131,7 @@ private struct QuotaTile: View {
                     HStack(alignment: .firstTextBaseline, spacing: 3) {
                         Text(percentText)
                             .font(.title3.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(tint)
+                            .foregroundStyle(valueTint)
                         Text(displayMode.valueSuffix)
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
@@ -133,7 +145,7 @@ private struct QuotaTile: View {
                         Capsule()
                             .fill(.primary.opacity(0.1))
                         Capsule()
-                            .fill(tint)
+                            .fill(progressTint)
                             .frame(
                                 width: geometry.size.width *
                                     displayMode.renderedFraction(
@@ -146,12 +158,13 @@ private struct QuotaTile: View {
                 .accessibilityHidden(true)
 
                 if let reset = window.resetsAt {
-                    Label(
-                        resetText(reset, relativeTo: context.date),
-                        systemImage: "clock"
-                    )
+                    HStack(spacing: 5) {
+                        Image(systemName: "clock")
+                            .foregroundStyle(.tertiary)
+                        Text(resetText(reset, relativeTo: context.date))
+                            .foregroundStyle(.secondary)
+                    }
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -173,11 +186,19 @@ private struct QuotaTile: View {
         return "\(value.formatted(.number.precision(.fractionLength(1))))%"
     }
 
-    private var tint: Color {
+    private var valueTint: Color {
         switch window.usedPercent {
         case 85...: UsagePalette.critical
         case 60..<85: UsagePalette.warning
-        default: UsagePalette.accent
+        default: Color(nsColor: .labelColor)
+        }
+    }
+
+    private var progressTint: Color {
+        switch window.usedPercent {
+        case 85...: UsagePalette.critical
+        case 60..<85: UsagePalette.warning
+        default: UsagePalette.normalUsage
         }
     }
 
@@ -208,31 +229,76 @@ private struct QuotaTile: View {
     }
 }
 
+private struct ProviderStatusRow: View {
+    let message: String
+    var systemImage: String?
+    var showsProgress = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if showsProgress {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 14, height: 14)
+            } else if let systemImage {
+                Image(systemName: systemImage)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 14, height: 14)
+            }
+
+            Text(message)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption)
+        .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
+    }
+}
+
 private struct FailureRow: View {
     let failure: ProviderFailure
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Label(failure.message, systemImage: symbol)
-                .font(.caption)
-                .foregroundStyle(
-                    failure.kind == .authentication
-                        ? Color(nsColor: .secondaryLabelColor)
-                        : UsagePalette.warning
-                )
-                .fixedSize(horizontal: false, vertical: true)
-            if let retryAt = failure.retryAt {
-                HStack(spacing: 3) {
-                    Text("Retry")
-                    Text(retryAt, style: .relative)
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: symbol)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(failureTint)
+                .frame(width: 14, height: 14)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(failure.message)
+                    .foregroundStyle(failureTint)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let retryAt = failure.retryAt {
+                    HStack(spacing: 3) {
+                        Text("Retry")
+                        Text(retryAt, style: .relative)
+                    }
+                    .foregroundStyle(.tertiary)
                 }
-                .font(.caption)
-                .foregroundStyle(.tertiary)
             }
         }
+        .font(.caption)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var failureTint: Color {
+        failure.kind == .authentication
+            ? Color(nsColor: .secondaryLabelColor)
+            : UsagePalette.warning
     }
 
     private var symbol: String {
-        failure.kind == .authentication ? "person.crop.circle.badge.exclamationmark" : "exclamationmark.triangle"
+        switch failure.kind {
+        case .authentication:
+            "person.crop.circle.badge.exclamationmark"
+        case .rateLimited:
+            "hourglass"
+        case .transient, .invalidResponse, .storage:
+            "exclamationmark.triangle"
+        }
     }
 }

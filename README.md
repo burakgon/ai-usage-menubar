@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Claude Code and Codex limits, one click away.</strong><br>
-  Native Liquid Glass that sleeps when you are not using it.
+  Native Liquid Glass. Measured at 0.0% idle CPU with the panel closed.
 </p>
 
 <p align="center">
@@ -16,21 +16,21 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/ai-usage-menubar-dark.png" width="800" alt="AI Usage open from the macOS menu bar in dark mode, showing Claude Code and Codex quota windows">
+  <img src="docs/images/ai-usage-menubar-dark.png" width="900" alt="AI Usage open beneath its 85% macOS menu bar item in dark mode, showing remaining Claude Code and Codex limits">
 </p>
 
 <p align="center">
-  <sub>Lives in the menu bar — no Dock icon, no account setup, no extra window.</sub>
+  <sub>A real native menu bar popover — no Dock icon or persistent window.</sub>
 </p>
 
 AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
 
-## Built to sleep
+## Other usage apps keep running. AI Usage goes idle.
 
 <p align="center">
-  <img src="docs/images/efficiency-comparison.svg" width="800" alt="Other usage trackers may keep their dashboard running. AI Usage releases its panel when closed and measured 0.0% idle CPU across ten release-test samples.">
+  <img src="docs/images/efficiency-comparison.svg" width="900" alt="Other always-on usage apps keep CPU, interface memory, and battery activity running. AI Usage closes its panel, releases the interface, and measured 0.0% idle CPU across ten release-test samples.">
 </p>
 
 ## Download

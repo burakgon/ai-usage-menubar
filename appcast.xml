@@ -6,6 +6,29 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.7</title>
+            <pubDate>Tue, 28 Jul 2026 02:10:52 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.7
+
+This release gives the menu bar panel a calmer, clearer native finish.
+
+- Use adaptive system teal for normal quota progress while keeping warning and
+  critical limits immediately recognizable.
+- Keep quota values readable in both light and dark mode.
+- Place Refresh and Settings in one stable Liquid Glass control with matching
+  sizing and no movement while usage refreshes.
+- Tighten quota rows, provider states, and accessibility labels without adding
+  persistent background work.
+
+The app remains idle while its panel is closed.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.7/AI-Usage.dmg" length="3508891" type="application/octet-stream" sparkle:edSignature="voTY3H/wwVz8AXLUANfzo4V/bAJ3lFnG0hwlD47lAu6co/d6Jru802K+wn5b+BwvhmcBVsN2hA/dJVosNn2CCg=="/>
+        </item>
+        <item>
             <title>0.1.6</title>
             <pubDate>Mon, 27 Jul 2026 23:51:41 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -101,37 +124,9 @@ introduced in 0.1.2 are unchanged.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.3/AI-Usage.dmg" length="3422584" type="application/octet-stream" sparkle:edSignature="G8hOoxOURkkoOOJXaIUq1bsqPK5MdmnHXKCxXifjPwzTMht/ca4aZrI+0DCFoW1ZMeKU6dhudnHKlS/TmScFAQ=="/>
         </item>
-        <item>
-            <title>0.1.2</title>
-            <pubDate>Mon, 27 Jul 2026 11:51:34 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.2
-
-This release makes usage meaning and menu bar behavior explicit while keeping
-the panel compact and native.
-
-- Switch every quota between **Used** and **Left** directly in the panel.
-- Show the selected meaning in both quota values and the menu bar.
-- Choose whether the menu bar tracks the current **Session** or **Weekly**
-  limit.
-- Choose automatic refresh intervals of 1, 5, 15, 30, or 60 minutes.
-- Enable Launch at Login by default on the first launch from Applications,
-  while respecting users who turn it off.
-- Show a direct **Update** action in the panel whenever Sparkle finds a newer
-  release.
-- Remove the duplicated disclosure arrow from the Settings button.
-
-The release also expands store, login, and compact-layout coverage for the new
-preferences.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.2/AI-Usage.dmg" length="3422710" type="application/octet-stream" sparkle:edSignature="eCsr36PG4BaIlUwxB8ZgDG3NTcvg+VDTi1as6dEgMf5oSeYA6dQCdc3VcXgZU6hd9NfkZAar62DEJqtD2ZgVAg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: d7L9GaQQE5j1UeDRkMXp/1+EjBpigosJ1zPLs1yUrzoXvl6Oy91DRFmmI8PH6lWnfxKFnjmBa9E4bi8ZLJKUDQ==
-length: 7412
+edSignature: 8R3w0Y5MzgX9e2411cnUCRqjUxVdQVddb3DWu4U89XjicGmupBPF91yhsP6YOTj82i3HKq1swdrtgzdRwP8FAQ==
+length: 7180
 -->

@@ -25,6 +25,7 @@ final class VisualSnapshotTests: XCTestCase {
 
         let colors: [(String, Color)] = [
             ("accent", UsagePalette.accent),
+            ("normalUsage", UsagePalette.normalUsage),
             ("success", UsagePalette.success),
             ("warning", UsagePalette.warning),
             ("critical", UsagePalette.critical)
@@ -53,8 +54,13 @@ final class VisualSnapshotTests: XCTestCase {
             of: RefreshButtonLabel(isRefreshing: true),
             width: 100
         )
+        let settingsSize = measuredSize(
+            of: SettingsButtonLabel(),
+            width: 100
+        )
 
         XCTAssertEqual(idleSize, refreshingSize)
+        XCTAssertEqual(idleSize, settingsSize)
         XCTAssertEqual(idleSize.width, RefreshButtonLabel.size, accuracy: 0.5)
         XCTAssertEqual(idleSize.height, RefreshButtonLabel.size, accuracy: 0.5)
     }

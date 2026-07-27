@@ -37,6 +37,7 @@ struct DashboardView: View {
         HStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: freshnessSymbol)
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(freshnessTint)
 
                 Group {
@@ -52,7 +53,7 @@ struct DashboardView: View {
                     }
                 }
             }
-            .font(.caption)
+            .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
             .lineLimit(1)
 
@@ -69,93 +70,95 @@ struct DashboardView: View {
                 .help("Update AI Usage to \(version)")
             }
 
-            Button {
-                store.refreshNow()
-            } label: {
-                RefreshButtonLabel(isRefreshing: isRefreshing)
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .controlSize(.small)
-            .help(isRefreshing ? "Refreshing usage" : "Refresh now")
-            .disabled(isRefreshing)
+            HStack(spacing: 0) {
+                Button {
+                    store.refreshNow()
+                } label: {
+                    RefreshButtonLabel(isRefreshing: isRefreshing)
+                }
+                .help(isRefreshing ? "Refreshing usage" : "Refresh now")
+                .disabled(isRefreshing)
 
-            Menu {
-                Picker("Menu Bar Provider", selection: $menuBarSelection) {
-                    ForEach(MenuBarSelection.allCases) { option in
-                        Label {
-                            Text(option.title)
-                        } icon: {
-                            if let provider = option.provider {
-                                ProviderIcon(provider: provider, size: 13)
-                            } else {
-                                Image(systemName: "gauge.with.dots.needle.50percent")
+                Menu {
+                    Picker("Menu Bar Provider", selection: $menuBarSelection) {
+                        ForEach(MenuBarSelection.allCases) { option in
+                            Label {
+                                Text(option.title)
+                            } icon: {
+                                if let provider = option.provider {
+                                    ProviderIcon(provider: provider, size: 13)
+                                } else {
+                                    Image(systemName: "gauge.with.dots.needle.50percent")
+                                }
                             }
-                        }
-                        .tag(option)
-                    }
-                }
-
-                Picker("Menu Bar Period", selection: $menuBarWindow) {
-                    ForEach(MenuBarWindow.allCases) { option in
-                        Label(
-                            option.title,
-                            systemImage: option == .session
-                                ? "clock"
-                                : "calendar"
-                        )
-                        .tag(option)
-                    }
-                }
-
-                Picker("Refresh", selection: $refreshInterval) {
-                    ForEach(RefreshIntervalOption.allCases) { option in
-                        Text(option.title)
                             .tag(option)
+                        }
                     }
-                }
 
-                Divider()
+                    Picker("Menu Bar Period", selection: $menuBarWindow) {
+                        ForEach(MenuBarWindow.allCases) { option in
+                            Label(
+                                option.title,
+                                systemImage: option == .session
+                                    ? "clock"
+                                    : "calendar"
+                            )
+                            .tag(option)
+                        }
+                    }
 
-                Toggle(
-                    "Launch at Login",
-                    isOn: Binding(
-                        get: { launchAtLogin.isEnabled },
-                        set: { launchAtLogin.setEnabled($0) }
+                    Picker("Refresh", selection: $refreshInterval) {
+                        ForEach(RefreshIntervalOption.allCases) { option in
+                            Text(option.title)
+                                .tag(option)
+                        }
+                    }
+
+                    Divider()
+
+                    Toggle(
+                        "Launch at Login",
+                        isOn: Binding(
+                            get: { launchAtLogin.isEnabled },
+                            set: { launchAtLogin.setEnabled($0) }
+                        )
                     )
-                )
 
-                if launchAtLogin.requiresApproval {
-                    Text("Approval needed in System Settings")
-                }
-                if let error = launchAtLogin.errorMessage {
-                    Text(error)
-                }
+                    if launchAtLogin.requiresApproval {
+                        Text("Approval needed in System Settings")
+                    }
+                    if let error = launchAtLogin.errorMessage {
+                        Text(error)
+                    }
 
-                Divider()
+                    Divider()
 
-                Button(action: checkForUpdates) {
-                    Label(
-                        "Check for Updates…",
-                        systemImage: "arrow.triangle.2.circlepath"
-                    )
-                }
-                .disabled(isCheckingForUpdates)
+                    Button(action: checkForUpdates) {
+                        Label(
+                            "Check for Updates…",
+                            systemImage: "arrow.triangle.2.circlepath"
+                        )
+                    }
+                    .disabled(isCheckingForUpdates)
 
-                Link(destination: AppLinks.repository) {
-                    Label("Star AI Usage on GitHub", systemImage: "star")
-                }
+                    Link(destination: AppLinks.repository) {
+                        Label("Star AI Usage on GitHub", systemImage: "star")
+                    }
 
-                Button("Quit AI Usage") {
-                    NSApplication.shared.terminate(nil)
+                    Button("Quit AI Usage") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                } label: {
+                    SettingsButtonLabel()
                 }
-            } label: {
-                Image(systemName: "gearshape")
+                .menuStyle(.button)
+                .menuIndicator(.hidden)
+                .help("Settings")
+                .accessibilityLabel("Settings")
+                .accessibilityHint("Opens preferences and app actions")
             }
-            .menuStyle(.button)
-            .buttonStyle(.glass)
-            .controlSize(.small)
-            .help("Settings")
+            .buttonStyle(.plain)
+            .glassEffect(.regular, in: .capsule)
         }
         .padding(.leading, 12)
         .padding(.trailing, 8)
@@ -180,8 +183,18 @@ struct DashboardView: View {
     }
 }
 
+struct SettingsButtonLabel: View {
+    var body: some View {
+        Image(systemName: "gearshape")
+            .font(.system(size: RefreshButtonLabel.symbolSize, weight: .medium))
+            .frame(width: RefreshButtonLabel.size, height: RefreshButtonLabel.size)
+            .contentShape(Circle())
+    }
+}
+
 struct RefreshButtonLabel: View {
-    static let size: CGFloat = 14
+    static let size: CGFloat = 28
+    static let symbolSize: CGFloat = 14
 
     let isRefreshing: Bool
 
@@ -194,7 +207,9 @@ struct RefreshButtonLabel: View {
                 Image(systemName: "arrow.clockwise")
             }
         }
+        .font(.system(size: Self.symbolSize, weight: .medium))
         .frame(width: Self.size, height: Self.size)
+        .contentShape(Circle())
         .accessibilityLabel(isRefreshing ? "Refreshing usage" : "Refresh now")
     }
 }
@@ -221,10 +236,7 @@ struct DashboardContentView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "gauge.with.dots.needle.50percent")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(UsagePalette.accent)
+        HStack {
             Text("AI Usage")
                 .font(.headline.weight(.semibold))
             Spacer()
@@ -238,6 +250,8 @@ struct DashboardContentView: View {
             .labelsHidden()
             .controlSize(.small)
             .frame(width: 112)
+            .accessibilityLabel("Usage numbers")
+            .accessibilityHint("Choose whether percentages show usage left or used")
         }
         .padding(.horizontal, 4)
         .frame(height: 28)
