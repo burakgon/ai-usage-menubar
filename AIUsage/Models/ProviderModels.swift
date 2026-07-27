@@ -68,6 +68,17 @@ struct ProviderSnapshot: Equatable, Sendable {
             windows.first { $0.kind == .weekly }
         }
     }
+
+    func primaryWindowWithFallback(
+        for selection: MenuBarWindow
+    ) -> QuotaWindow? {
+        if let selected = primaryWindow(for: selection) {
+            return selected
+        }
+        let fallback: MenuBarWindow =
+            selection == .session ? .weekly : .session
+        return primaryWindow(for: fallback)
+    }
 }
 
 enum ProviderFailureKind: String, Sendable {

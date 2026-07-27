@@ -110,7 +110,7 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
-    func testPinnedCodexUsesTheExplicitlySelectedPeriod() async {
+    func testPinnedCodexFallsBackToAvailableWeeklyPeriod() async {
         let weeklyOnly = ProviderSnapshot(
             provider: .codex,
             planName: "Pro",
@@ -136,10 +136,10 @@ final class UsageStoreTests: XCTestCase {
             store.menuBarReading(for: .codex),
             MenuBarReading(
                 provider: .codex,
-                percent: nil,
+                percent: 43,
                 displayMode: .used,
                 isStale: false,
-                showsPlaceholder: true
+                showsPlaceholder: false
             )
         )
         XCTAssertEqual(
@@ -147,6 +147,139 @@ final class UsageStoreTests: XCTestCase {
             MenuBarReading(
                 provider: .codex,
                 percent: 43,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: false
+            )
+        )
+    }
+
+    func testPinnedProviderPrefersTheExactSelectedPeriod() async {
+        let store = UsageStore(
+            providers: [
+                SequencedProvider(
+                    id: .codex,
+                    results: [.success(ProviderSnapshot(
+                        provider: .codex,
+                        planName: "Pro",
+                        windows: [
+                            QuotaWindow(
+                                kind: .session,
+                                usedPercent: 17,
+                                resetsAt: nil
+                            ),
+                            QuotaWindow(
+                                kind: .weekly,
+                                usedPercent: 43,
+                                resetsAt: nil
+                            )
+                        ],
+                        fetchedAt: Date()
+                    ))]
+                )
+            ],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(store.menuBarReading(for: .codex).percent, 17)
+        XCTAssertEqual(
+            store.menuBarReading(for: .codex, window: .weekly).percent,
+            43
+        )
+    }
+
+    func testPinnedProviderFallsBackFromWeeklyToSession() async {
+        let store = UsageStore(
+            providers: [
+                SequencedProvider(
+                    id: .codex,
+                    results: [.success(snapshot(provider: .codex, percent: 17))]
+                )
+            ],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.menuBarReading(for: .codex, window: .weekly),
+            MenuBarReading(
+                provider: .codex,
+                percent: 17,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: false
+            )
+        )
+    }
+
+    func testPinnedProviderShowsPlaceholderWithoutPrimaryWindows() async {
+        let store = UsageStore(
+            providers: [
+                SequencedProvider(
+                    id: .codex,
+                    results: [.success(ProviderSnapshot(
+                        provider: .codex,
+                        planName: "Pro",
+                        windows: [
+                            QuotaWindow(
+                                kind: .sparkWeekly,
+                                usedPercent: 12,
+                                resetsAt: nil
+                            )
+                        ],
+                        fetchedAt: Date()
+                    ))]
+                )
+            ],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.menuBarReading(for: .codex),
+            MenuBarReading(
+                provider: .codex,
+                percent: nil,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: true
+            )
+        )
+    }
+
+    func testAutomaticIndicatorDoesNotFallbackAcrossPeriods() async {
+        let claude = SequencedProvider(
+            id: .claude,
+            results: [.success(snapshot(provider: .claude, percent: 20))]
+        )
+        let weeklyCodex = ProviderSnapshot(
+            provider: .codex,
+            planName: "Pro",
+            windows: [
+                QuotaWindow(kind: .weekly, usedPercent: 81, resetsAt: nil)
+            ],
+            fetchedAt: Date()
+        )
+        let codex = SequencedProvider(
+            id: .codex,
+            results: [.success(weeklyCodex)]
+        )
+        let store = UsageStore(
+            providers: [claude, codex],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.menuBarReading(for: .automatic, window: .session),
+            MenuBarReading(
+                provider: .claude,
+                percent: 20,
                 displayMode: .used,
                 isStale: false,
                 showsPlaceholder: false
