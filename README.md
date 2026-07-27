@@ -16,7 +16,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/ai-usage-dashboard.png" width="392" alt="AI Usage showing Claude Code and Codex quota windows">
+  <img src="docs/images/ai-usage-menubar-dark.png" width="800" alt="AI Usage open from the macOS menu bar in dark mode, showing Claude Code and Codex quota windows">
+</p>
+
+<p align="center">
+  <sub>Lives in the menu bar — no Dock icon, no account setup, no extra window.</sub>
 </p>
 
 AI Usage shows the limits that matter and stays out of the way. No extra
