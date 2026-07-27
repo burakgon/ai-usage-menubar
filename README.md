@@ -27,21 +27,11 @@ AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
 
-## Why AI Usage?
+## Built to sleep
 
-| | Other usage apps | AI Usage |
-|---|---|---|
-| **Panel closed** | Often keep the whole dashboard running | Turns the dashboard off |
-| **CPU** | Can keep doing work | Sleeps at **0.0%** in our release test |
-| **Memory** | May keep the full interface loaded | Releases the panel from memory |
-| **Battery** | More background work | Wakes only to refresh |
-| **Why?** | Always-on interface | The panel exists only while you look at it |
-
-**The simple version:** close the panel and AI Usage puts the interface away.
-Click again and it instantly builds it back.
-
-<sub>Measured on v0.1.6 after opening and closing the panel: 10 out of 10
-one-second CPU samples were 0.0%.</sub>
+<p align="center">
+  <img src="docs/images/efficiency-comparison.svg" width="800" alt="Other usage trackers may keep their dashboard running. AI Usage releases its panel when closed and measured 0.0% idle CPU across ten release-test samples.">
+</p>
 
 ## Download
 
