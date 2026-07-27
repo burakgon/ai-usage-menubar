@@ -39,10 +39,10 @@ Open the DMG, drag **AI Usage** to Applications, and launch it. It appears in
 the menu bar rather than the Dock. macOS 26 or newer is required.
 
 > [!NOTE]
-> Version 0.1.0 is ad-hoc signed because a Developer ID certificate is not
-> available yet. If macOS blocks the first launch, right-click **AI Usage** in
-> Applications and choose **Open**. Future updates are still protected by
-> Sparkle's EdDSA signature.
+> Current public builds are ad-hoc signed because a Developer ID certificate
+> is not available yet. If macOS blocks the first launch, right-click
+> **AI Usage** in Applications and choose **Open**. Future updates are still
+> protected by Sparkle's EdDSA signature.
 
 ## What you get
 

@@ -31,9 +31,14 @@ The script:
 
 - builds a universal arm64/x86_64 Release app;
 - verifies the app bundle and embedded update configuration;
+- launches the exact Release executable for a startup smoke test;
 - creates `dist/v<version>/AI-Usage.dmg`;
 - signs the update with the private EdDSA key in Keychain;
 - updates the signed `appcast.xml`.
+
+Developer ID builds retain Hardened Runtime. When no Developer ID certificate
+is available, the script disables Hardened Runtime for the ad-hoc build so
+macOS can load Sparkle's separately signed framework.
 
 If a Developer ID certificate and a `notarytool` Keychain profile are
 available, notarize in the same pass:

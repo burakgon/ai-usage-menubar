@@ -75,7 +75,10 @@ else
     printf \
         'Warning: no Developer ID Application identity was found; this build cannot be notarized.\n' \
         >&2
-    build_settings+=("CODE_SIGN_STYLE=Automatic")
+    build_settings+=(
+        "CODE_SIGN_STYLE=Automatic"
+        "ENABLE_HARDENED_RUNTIME=NO"
+    )
 fi
 
 xcodebuild \
@@ -148,10 +151,38 @@ fi
 
 mkdir -p "$artifact_directory"
 temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/ai-usage-release.XXXXXX")"
+smoke_test_pid=""
 cleanup() {
+    if [[ -n "$smoke_test_pid" ]] && kill -0 "$smoke_test_pid" 2>/dev/null; then
+        kill -TERM "$smoke_test_pid" 2>/dev/null || true
+        wait "$smoke_test_pid" 2>/dev/null || true
+    fi
     rm -rf "$temporary_directory"
 }
 trap cleanup EXIT
+
+smoke_test_log="$temporary_directory/application-smoke.log"
+printf 'Running launch smoke test…\n'
+LLVM_PROFILE_FILE="$temporary_directory/application-smoke.profraw" \
+    XCTestConfigurationFilePath=ReleaseSmoke \
+    "$application_binary" > "$smoke_test_log" 2>&1 &
+smoke_test_pid=$!
+for _ in {1..20}; do
+    if ! kill -0 "$smoke_test_pid" 2>/dev/null; then
+        printf 'Release app exited during launch smoke test:\n' >&2
+        sed -n '1,120p' "$smoke_test_log" >&2
+        exit 1
+    fi
+    sleep 0.1
+done
+if ! kill -0 "$smoke_test_pid" 2>/dev/null; then
+    printf 'Release app exited during launch smoke test:\n' >&2
+    sed -n '1,120p' "$smoke_test_log" >&2
+    exit 1
+fi
+kill -TERM "$smoke_test_pid" 2>/dev/null || true
+wait "$smoke_test_pid" 2>/dev/null || true
+smoke_test_pid=""
 
 disk_image_source="$temporary_directory/disk-image"
 updates_directory="$temporary_directory/updates"

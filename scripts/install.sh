@@ -22,6 +22,7 @@ xcodebuild \
     -configuration Release \
     -destination 'platform=macOS' \
     -derivedDataPath "$derived_data_directory" \
+    ENABLE_HARDENED_RUNTIME=NO \
     build
 
 mkdir -p "$install_directory"

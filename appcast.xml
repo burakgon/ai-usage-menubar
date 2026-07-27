@@ -6,6 +6,29 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.1</title>
+            <pubDate>Mon, 27 Jul 2026 11:02:10 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.1
+
+This release fixes startup for the current ad-hoc signed distribution.
+
+Sparkle's embedded framework has its own code signature. Hardened Runtime
+library validation rejected that framework when the host app had only an
+ad-hoc signature, causing version 0.1.0 to exit before showing its menu bar
+item. Version 0.1.1 disables Hardened Runtime only for the unsigned fallback
+build. Developer ID signed releases continue to use Hardened Runtime and can
+be notarized normally.
+
+All Claude Code, Codex, Liquid Glass, Launch at Login, and signed OTA features
+from 0.1.0 are unchanged.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.1/AI-Usage.dmg" length="3347188" type="application/octet-stream" sparkle:edSignature="wug+gv8p5QMmvzqLbBVCj1duAbgg1/5gfeIh4BFYS4byact09KJjxTOx5dZXs2Np5jo0h97mpu52cxSSDUACDQ=="/>
+        </item>
+        <item>
             <title>0.1.0</title>
             <pubDate>Mon, 27 Jul 2026 10:52:45 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -35,6 +58,6 @@ and choosing **Open**.
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Br+ah5mrOhgMDuWzNtNdvAKWRbQrGlfxxBRWTtcsA21jI3XyBK7bi+XpCyfd/UOGnzcbbhtpWf3jU3X0PVWQBA==
-length: 1892
+edSignature: 5KQDVDjQZmOUavAexbkaPvNO85KsArZu5xLtH2wyHQcGOXOV5VfsetQ6CxxKxYn/szeIXXwk5kjgQSb5o7EiCw==
+length: 3239
 -->
