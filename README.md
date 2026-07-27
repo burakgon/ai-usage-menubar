@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Claude Code and Codex limits, one click away.</strong><br>
-  A tiny, native macOS menu bar app with Liquid Glass.
+  Native Liquid Glass that sleeps when you are not using it.
 </p>
 
 <p align="center">
@@ -26,6 +26,22 @@
 AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
+
+## Why AI Usage?
+
+| | Other usage apps | AI Usage |
+|---|---|---|
+| **Panel closed** | Often keep the whole dashboard running | Turns the dashboard off |
+| **CPU** | Can keep doing work | Sleeps at **0.0%** in our release test |
+| **Memory** | May keep the full interface loaded | Releases the panel from memory |
+| **Battery** | More background work | Wakes only to refresh |
+| **Why?** | Always-on interface | The panel exists only while you look at it |
+
+**The simple version:** close the panel and AI Usage puts the interface away.
+Click again and it instantly builds it back.
+
+<sub>Measured on v0.1.6 after opening and closing the panel: 10 out of 10
+one-second CPU samples were 0.0%.</sub>
 
 ## Download
 
@@ -51,7 +67,7 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 - Remaining or used percentages, switchable directly in the panel
 - A selectable provider and session/weekly value directly in the menu bar
 - Configurable 1, 5, 15, 30, or 60-minute refresh and one-click manual refresh
-- Daily signed update checks and a manual **Check for Updates…** command
+- Signed update checks at launch and daily, plus **Check for Updates…**
 - A direct **Update** button in the panel when a new version is available
 - Provider cards only for installed tools, with signed-out status kept visible
 - Native light and dark appearances with Liquid Glass
