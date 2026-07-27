@@ -187,7 +187,8 @@ final class UsageStore {
         case .claude, .codex:
             let provider: ProviderID = selection == .claude ? .claude : .codex
             let state = states[provider]
-            let window = state?.snapshot?.primaryWindow(for: windowSelection)
+            let window = state?.snapshot?
+                .primaryWindowWithFallback(for: windowSelection)
             return MenuBarReading(
                 provider: provider,
                 percent: window.map {
