@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA0000000000000000000020 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000021 /* Sparkle */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AA0000000000000000000011 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,9 +25,22 @@
 		AA0000000000000000000005 /* AIUsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AIUsageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		AA0000000000000000000023 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = AA0000000000000000000008 /* AIUsage */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA0000000000000000000006 /* AIUsage */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AA0000000000000000000023 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = AIUsage;
 			sourceTree = "<group>";
 		};
@@ -39,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000000000000000000020 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +108,7 @@
 			);
 			name = AIUsage;
 			packageProductDependencies = (
+				AA0000000000000000000021 /* Sparkle */,
 			);
 			productName = "AI Usage";
 			productReference = AA0000000000000000000004 /* AI Usage.app */;
@@ -148,6 +167,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = AA0000000000000000000003 /* Products */;
+			packageReferences = (
+				AA0000000000000000000022 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -308,10 +330,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "AI Usage";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AIUsage/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -336,10 +356,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "AI Usage";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = AIUsage/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -417,6 +435,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0000000000000000000022 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA0000000000000000000021 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000022 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }

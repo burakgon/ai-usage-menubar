@@ -6,16 +6,20 @@ import SwiftUI
 struct AIUsageApp: App {
     @State private var store: UsageStore
     @State private var launchAtLogin: LaunchAtLoginController
+    private let updateController: UpdateController
     @AppStorage("menuBarSelection")
     private var menuBarSelection: MenuBarSelection = .automatic
 
     init() {
+        let isTesting =
+            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         let store = UsageStore()
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+        if !isTesting {
             store.start()
         }
         _store = State(initialValue: store)
         _launchAtLogin = State(initialValue: LaunchAtLoginController())
+        updateController = UpdateController(startingUpdater: !isTesting)
     }
 
     var body: some Scene {
@@ -23,7 +27,8 @@ struct AIUsageApp: App {
             DashboardView(
                 store: store,
                 launchAtLogin: launchAtLogin,
-                menuBarSelection: $menuBarSelection
+                menuBarSelection: $menuBarSelection,
+                checkForUpdates: updateController.checkForUpdates
             )
         } label: {
             MenuBarLabelView(reading: store.menuBarReading(for: menuBarSelection))

@@ -27,16 +27,34 @@ AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
 
+## Download
+
+<p>
+  <a href="https://github.com/burakgon/ai-usage-menubar/releases/latest/download/AI-Usage.dmg">
+    <img src="https://img.shields.io/badge/Download-DMG-0A84FF?logo=apple&logoColor=white" alt="Download the latest AI Usage DMG">
+  </a>
+</p>
+
+Open the DMG, drag **AI Usage** to Applications, and launch it. It appears in
+the menu bar rather than the Dock. macOS 26 or newer is required.
+
+> [!NOTE]
+> Version 0.1.0 is ad-hoc signed because a Developer ID certificate is not
+> available yet. If macOS blocks the first launch, right-click **AI Usage** in
+> Applications and choose **Open**. Future updates are still protected by
+> Sparkle's EdDSA signature.
+
 ## What you get
 
 - Claude Code session, weekly, Sonnet, and Fable limits
 - Codex session, weekly, Spark, and Spark weekly limits
 - A provider icon and current percentage directly in the menu bar
 - Five-minute automatic refresh and one-click manual refresh
+- Daily signed update checks and a manual **Check for Updates…** command
 - Native light and dark appearances with Liquid Glass
 - Optional Launch at Login
 
-## Install and run
+## Build from source
 
 You need:
 
@@ -97,11 +115,16 @@ xcodebuild test \
   -destination 'platform=macOS'
 ```
 
-The app intentionally has no package dependencies. It is SwiftUI and AppKit,
-with a small provider layer and an in-memory store.
+The app is SwiftUI and AppKit, with a small provider layer and an in-memory
+store. Its only runtime package dependency is
+[Sparkle](https://github.com/sparkle-project/Sparkle), used for signed
+over-the-air updates.
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md)
 before opening a pull request.
+
+Release packaging and OTA feed maintenance are documented in
+[docs/releasing.md](docs/releasing.md).
 
 ## Upstream research
 

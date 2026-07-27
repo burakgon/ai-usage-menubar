@@ -5,6 +5,7 @@ struct DashboardView: View {
     @Bindable var store: UsageStore
     @Bindable var launchAtLogin: LaunchAtLoginController
     @Binding var menuBarSelection: MenuBarSelection
+    var checkForUpdates: @MainActor () -> Void = {}
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -90,6 +91,13 @@ struct DashboardView: View {
                 }
 
                 Divider()
+
+                Button(action: checkForUpdates) {
+                    Label(
+                        "Check for Updates…",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                }
 
                 Link(destination: AppLinks.repository) {
                     Label("Star AI Usage on GitHub", systemImage: "star")
