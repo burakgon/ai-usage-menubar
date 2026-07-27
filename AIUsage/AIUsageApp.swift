@@ -1,67 +1,49 @@
-import Foundation
+import AppKit
 import SwiftUI
 
 @main
-@MainActor
 struct AIUsageApp: App {
-    @State private var store: UsageStore
-    @State private var launchAtLogin: LaunchAtLoginController
-    @State private var updateController: UpdateController
-    @AppStorage("menuBarSelection")
-    private var menuBarSelection: MenuBarSelection = .automatic
-    @AppStorage("menuBarWindow")
-    private var menuBarWindow: MenuBarWindow = .session
-    @AppStorage("usageDisplayMode")
-    private var usageDisplayMode: UsageDisplayMode =
-        UsageDisplayMode.defaultSelection
-    @AppStorage("refreshInterval")
-    private var refreshInterval: RefreshIntervalOption = .fiveMinutes
-
-    init() {
-        let isTesting =
-            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        let savedRefreshInterval = UserDefaults.standard
-            .string(forKey: "refreshInterval")
-            .flatMap(RefreshIntervalOption.init(rawValue:))
-            ?? .fiveMinutes
-        let store = UsageStore(refreshInterval: savedRefreshInterval)
-        let launchAtLogin = LaunchAtLoginController()
-        if !isTesting {
-            if Self.isInstalledInApplicationsFolder {
-                launchAtLogin.enableByDefaultIfNeeded()
-            }
-            store.start()
-        }
-        _store = State(initialValue: store)
-        _launchAtLogin = State(initialValue: launchAtLogin)
-        _updateController = State(
-            initialValue: UpdateController(startingUpdater: !isTesting)
-        )
-    }
+    @NSApplicationDelegateAdaptor(AIUsageAppDelegate.self)
+    private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            DashboardView(
-                store: store,
-                launchAtLogin: launchAtLogin,
-                menuBarSelection: $menuBarSelection,
-                menuBarWindow: $menuBarWindow,
-                usageDisplayMode: $usageDisplayMode,
-                refreshInterval: $refreshInterval,
-                availableUpdateVersion: updateController.availableVersion,
-                isCheckingForUpdates: updateController.isChecking,
-                checkForUpdates: updateController.checkForUpdates
-            )
-        } label: {
-            MenuBarLabelView(
-                reading: store.menuBarReading(
-                    for: menuBarSelection,
-                    window: menuBarWindow,
-                    displayMode: usageDisplayMode
-                )
-            )
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
+    }
+}
+
+@MainActor
+final class AIUsageAppDelegate: NSObject, NSApplicationDelegate {
+    private var menuBarController: MenuBarController?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !Self.isRunningTests else { return }
+
+        let preferences = AppPreferences()
+        let store = UsageStore(refreshInterval: preferences.refreshInterval)
+        let launchAtLogin = LaunchAtLoginController()
+        if Self.isInstalledInApplicationsFolder {
+            launchAtLogin.enableByDefaultIfNeeded()
+        }
+
+        let menuBarController = MenuBarController(
+            store: store,
+            preferences: preferences,
+            launchAtLogin: launchAtLogin,
+            updateController: UpdateController()
+        )
+        menuBarController.start()
+        self.menuBarController = menuBarController
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        menuBarController?.stop()
+        menuBarController = nil
+    }
+
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
     private static var isInstalledInApplicationsFolder: Bool {
