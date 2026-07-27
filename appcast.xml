@@ -6,6 +6,29 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.5</title>
+            <pubDate>Mon, 27 Jul 2026 16:58:23 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.1.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.5
+
+This release fixes missing menu bar values for pinned providers.
+
+- Prefer the Session or Weekly period selected in Settings whenever that
+  period is available.
+- Fall back to the provider's other primary period instead of showing `--`
+  when Claude Code or Codex only returns one primary quota window.
+- Keep Automatic mode scoped to the selected period so comparisons remain
+  consistent across providers.
+- Never substitute Spark-specific quotas for the main Codex quota.
+
+Thanks to [@cneren](https://github.com/cneren) for the contribution.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.5/AI-Usage.dmg" length="3439990" type="application/octet-stream" sparkle:edSignature="ITVQvvizZ92+LcaZMdTTSd5QxTLgN8ubFUAXguhKQIZku4Obc1QSIS3TUhxEDulBcoQ9CP/g7PpvacR0OJNqDQ=="/>
+        </item>
+        <item>
             <title>0.1.4</title>
             <pubDate>Mon, 27 Jul 2026 13:03:37 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -104,36 +127,9 @@ from 0.1.0 are unchanged.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.1/AI-Usage.dmg" length="3347188" type="application/octet-stream" sparkle:edSignature="wug+gv8p5QMmvzqLbBVCj1duAbgg1/5gfeIh4BFYS4byact09KJjxTOx5dZXs2Np5jo0h97mpu52cxSSDUACDQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 27 Jul 2026 10:52:45 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.0
-
-The first public release of AI Usage:
-
-- Claude Code and Codex limits in one native macOS menu bar panel
-- Provider-specific monochrome menu bar icons
-- Compact Liquid Glass design for light and dark mode
-- Five-minute background refresh and one-click manual refresh
-- Launch at Login
-- Daily, EdDSA-signed over-the-air update checks powered by Sparkle
-
-AI Usage reads the local sessions already created by Claude Code and Codex. It
-does not require another account or API key, and it does not collect telemetry.
-
-This first build is ad-hoc signed because a Developer ID certificate is not
-available yet. macOS may ask you to confirm it once by right-clicking the app
-and choosing **Open**.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.0/AI-Usage.dmg" length="3347196" type="application/octet-stream" sparkle:edSignature="OUQhjkPO+h+6S2aZJ8VpUUiG3lHtdMdV3SnaDryG+AKUrNcX4sdIZVoElrojqrRIDtX1ypzmgRipHh4QteblCw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 8GAcRNKAD8QZ9D1U4SElbXgVuhmjY/LxrFSnV0ZFSQOfVjsjpul2S0bMzGsIPhOimQm2OVQk/L0rhFmL5389AA==
-length: 7472
+edSignature: v7wJUWKWy/MnjqEepPQV0dd6OyJpLfNnpXM0bgHkGSrwl0UVd3/AfMHVH9CdcvTqK7X+OvUbanQrCtDscSfPDQ==
+length: 7327
 -->
