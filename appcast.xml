@@ -6,6 +6,28 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.3</title>
+            <pubDate>Mon, 27 Jul 2026 11:58:01 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.3
+
+This hotfix makes the new Launch at Login default work on a completely fresh
+installation.
+
+macOS can initially report the main application service as not found before it
+has ever been registered. AI Usage now treats that clean-install state as
+registerable, enables Launch at Login, and still remembers when a user later
+turns it off.
+
+All usage display, menu bar period, refresh interval, and direct update actions
+introduced in 0.1.2 are unchanged.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.3/AI-Usage.dmg" length="3422584" type="application/octet-stream" sparkle:edSignature="G8hOoxOURkkoOOJXaIUq1bsqPK5MdmnHXKCxXifjPwzTMht/ca4aZrI+0DCFoW1ZMeKU6dhudnHKlS/TmScFAQ=="/>
+        </item>
+        <item>
             <title>0.1.2</title>
             <pubDate>Mon, 27 Jul 2026 11:51:34 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -86,6 +108,6 @@ and choosing **Open**.
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: CN70DfC0M7wlQypPfqLKuICVK+WVZk20HvzbP4nXVPDDWoT/ctv++Zwvjl+ODAIsVoyUnZ4e2L2SLZSbjWN/Dg==
-length: 4777
+edSignature: spAIOFNr3scGNBjsuWWPGgA3pfntzJeuHVngtL1JCstzscUoB17HnjBYcev+OLDE+2DATwap6q911WTMz13MAQ==
+length: 5998
 -->

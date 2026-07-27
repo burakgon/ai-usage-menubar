@@ -79,13 +79,11 @@ final class LaunchAtLoginController {
         switch service.status {
         case .enabled, .requiresApproval:
             defaults.set(true, forKey: Self.defaultActivationKey)
-        case .notRegistered:
+        case .notRegistered, .unavailable:
             setEnabled(true)
             if isEnabled {
                 defaults.set(true, forKey: Self.defaultActivationKey)
             }
-        case .unavailable:
-            break
         }
     }
 

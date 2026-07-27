@@ -44,6 +44,21 @@ final class LaunchAtLoginTests: XCTestCase {
         XCTAssertFalse(controller.isEnabled)
         XCTAssertEqual(service.registerCallCount, 1)
     }
+
+    func testDefaultActivationRegistersWhenInitialStatusIsNotFound() {
+        let suiteName = "LaunchAtLoginTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let service = FakeLaunchAtLoginService(status: .unavailable)
+        let controller = LaunchAtLoginController(service: service)
+
+        controller.enableByDefaultIfNeeded(defaults: defaults)
+
+        XCTAssertTrue(controller.isEnabled)
+        XCTAssertNil(controller.errorMessage)
+        XCTAssertEqual(service.registerCallCount, 1)
+    }
 }
 
 @MainActor
