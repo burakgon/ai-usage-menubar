@@ -24,7 +24,8 @@ This release gives the menu bar panel a calmer, clearer native finish.
 - Tighten quota rows, provider states, and accessibility labels without adding
   persistent background work.
 
-The app remains idle while its panel is closed.
+The app stays lightweight between scheduled refreshes without keeping its panel
+loaded in the background.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.7/AI-Usage.dmg" length="3508891" type="application/octet-stream" sparkle:edSignature="voTY3H/wwVz8AXLUANfzo4V/bAJ3lFnG0hwlD47lAu6co/d6Jru802K+wn5b+BwvhmcBVsN2hA/dJVosNn2CCg=="/>
         </item>
@@ -127,6 +128,6 @@ introduced in 0.1.2 are unchanged.
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 8R3w0Y5MzgX9e2411cnUCRqjUxVdQVddb3DWu4U89XjicGmupBPF91yhsP6YOTj82i3HKq1swdrtgzdRwP8FAQ==
-length: 7180
+edSignature: jxqYYpUEtfJsUv9TRnzi4qzY9nQ8rUmYnLP62zPCDZduMFKAWFYZ6vwYYcf7ycihE/bxAKD8H7OyxaGYmgAFBA==
+length: 7238
 -->

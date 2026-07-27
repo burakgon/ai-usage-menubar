@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="270" viewBox="0 0 1000 270" role="img" aria-labelledby="title description">
   <title id="title">Background resource comparison</title>
-  <description id="description">Matching bars compare CPU activity, interface memory, and battery drain. Other always-on usage apps remain active. AI Usage releases its panel and measured zero percent idle CPU in ten release-test samples.</description>
+  <description id="description">Matching bars compare CPU activity, interface memory, and battery drain. Other always-on usage apps remain active. AI Usage releases its panel and only wakes briefly for scheduled refreshes.</description>
 
   <rect width="1000" height="270" rx="16" fill="#0D1117"/>
   <line x1="500" y1="24" x2="500" y2="224" stroke="#30363D"/>
@@ -10,7 +10,7 @@
     <text x="460" y="43" fill="#FF6B5E" font-size="15" font-weight="700" text-anchor="end">Always active</text>
 
     <text x="540" y="43" fill="#F0F3F6" font-size="20" font-weight="700">AI Usage</text>
-    <text x="960" y="43" fill="#30D158" font-size="15" font-weight="700" text-anchor="end">Idle</text>
+    <text x="960" y="43" fill="#30D158" font-size="15" font-weight="700" text-anchor="end">Lightweight</text>
 
     <g font-size="13" font-weight="650">
       <text x="40" y="82" fill="#AAB3BE">CPU</text>
@@ -42,6 +42,6 @@
       <rect x="540" y="208" width="34" height="10" rx="5" fill="#30D158"/>
     </g>
 
-    <text x="500" y="251" fill="#7D8793" font-size="12" font-weight="600" text-anchor="middle">* AI Usage v0.1.6 · 10/10 one-second CPU samples at 0.0% after closing the panel</text>
+    <text x="500" y="251" fill="#7D8793" font-size="12" font-weight="600" text-anchor="middle">* Panel closed · 0.0% CPU between scheduled refreshes · 10/10 one-second samples on v0.1.6</text>
   </g>
 </svg>

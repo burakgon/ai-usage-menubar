@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Claude Code and Codex limits, one click away.</strong><br>
-  Native Liquid Glass. Measured at 0.0% idle CPU with the panel closed.
+  Native Liquid Glass. Measured at 0.0% CPU between scheduled refreshes.
 </p>
 
 <p align="center">
@@ -27,10 +27,10 @@ AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
 
-## Other usage apps keep running. AI Usage goes idle.
+## Other usage apps stay heavy. AI Usage stays light.
 
 <p align="center">
-  <img src="docs/images/efficiency-comparison.svg" width="900" alt="Other always-on usage apps keep CPU, interface memory, and battery activity running. AI Usage closes its panel, releases the interface, and measured 0.0% idle CPU across ten release-test samples.">
+  <img src="docs/images/efficiency-comparison.svg" width="900" alt="Other always-on usage apps keep CPU, interface memory, and battery activity running. AI Usage releases its interface and only wakes briefly for scheduled refreshes.">
 </p>
 
 ## Download
