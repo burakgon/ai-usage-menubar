@@ -30,6 +30,7 @@ final class UsageStoreTests: XCTestCase {
             MenuBarReading(
                 provider: .claude,
                 percent: 72,
+                displayMode: .used,
                 isStale: true,
                 showsPlaceholder: false
             )
@@ -61,6 +62,7 @@ final class UsageStoreTests: XCTestCase {
             MenuBarReading(
                 provider: .codex,
                 percent: nil,
+                displayMode: .used,
                 isStale: false,
                 showsPlaceholder: true
             )
@@ -83,9 +85,23 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.menuBarReading(for: .automatic).percent, 81)
         XCTAssertEqual(store.menuBarReading(for: .automatic).provider, .codex)
         XCTAssertEqual(store.menuBarReading(for: .claude).percent, 20)
+        XCTAssertEqual(
+            store.menuBarReading(
+                for: .automatic,
+                window: .session,
+                displayMode: .remaining
+            ),
+            MenuBarReading(
+                provider: .codex,
+                percent: 19,
+                displayMode: .remaining,
+                isStale: false,
+                showsPlaceholder: false
+            )
+        )
     }
 
-    func testPinnedCodexUsesWeeklyWhenSessionIsUnavailable() async {
+    func testPinnedCodexUsesTheExplicitlySelectedPeriod() async {
         let weeklyOnly = ProviderSnapshot(
             provider: .codex,
             planName: "Pro",
@@ -105,10 +121,46 @@ final class UsageStoreTests: XCTestCase {
             store.menuBarReading(for: .codex),
             MenuBarReading(
                 provider: .codex,
+                percent: nil,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: true
+            )
+        )
+        XCTAssertEqual(
+            store.menuBarReading(for: .codex, window: .weekly),
+            MenuBarReading(
+                provider: .codex,
                 percent: 43,
+                displayMode: .used,
                 isStale: false,
                 showsPlaceholder: false
             )
+        )
+    }
+
+    func testRefreshIntervalCanBeChangedWithoutRecreatingTheStore() {
+        let store = UsageStore(providers: [])
+
+        XCTAssertEqual(store.refreshInterval, .fiveMinutes)
+
+        store.setRefreshInterval(.thirtyMinutes)
+
+        XCTAssertEqual(store.refreshInterval, .thirtyMinutes)
+    }
+
+    func testRemainingUsageIsBoundedToARealPercentage() {
+        XCTAssertEqual(
+            UsageDisplayMode.remaining.displayedPercent(from: 62),
+            38
+        )
+        XCTAssertEqual(
+            UsageDisplayMode.remaining.displayedPercent(from: 140),
+            0
+        )
+        XCTAssertEqual(
+            UsageDisplayMode.remaining.displayedPercent(from: -10),
+            100
         )
     }
 

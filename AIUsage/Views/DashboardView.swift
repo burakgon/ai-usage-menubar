@@ -5,19 +5,31 @@ struct DashboardView: View {
     @Bindable var store: UsageStore
     @Bindable var launchAtLogin: LaunchAtLoginController
     @Binding var menuBarSelection: MenuBarSelection
+    @Binding var menuBarWindow: MenuBarWindow
+    @Binding var usageDisplayMode: UsageDisplayMode
+    @Binding var refreshInterval: RefreshIntervalOption
+    let availableUpdateVersion: String?
+    let isCheckingForUpdates: Bool
     var checkForUpdates: @MainActor () -> Void = {}
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
-            DashboardContentView(store: store)
+            DashboardContentView(
+                store: store,
+                usageDisplayMode: $usageDisplayMode
+            )
                 .safeAreaBar(edge: .bottom, spacing: 0) {
                     footer
                 }
         }
         .frame(width: 392)
         .onAppear {
+            store.setRefreshInterval(refreshInterval)
             store.start()
             launchAtLogin.synchronize()
+        }
+        .onChange(of: refreshInterval) { _, interval in
+            store.setRefreshInterval(interval)
         }
     }
 
@@ -46,6 +58,17 @@ struct DashboardView: View {
 
             Spacer()
 
+            if let version = availableUpdateVersion {
+                Button(action: checkForUpdates) {
+                    Label("Update", systemImage: "arrow.down.circle.fill")
+                }
+                .buttonStyle(.glassProminent)
+                .tint(UsagePalette.accent)
+                .controlSize(.small)
+                .disabled(isCheckingForUpdates)
+                .help("Update AI Usage to \(version)")
+            }
+
             Button {
                 store.refreshNow()
             } label: {
@@ -58,7 +81,7 @@ struct DashboardView: View {
             .disabled(isRefreshing)
 
             Menu {
-                Picker("Menu Bar", selection: $menuBarSelection) {
+                Picker("Menu Bar Provider", selection: $menuBarSelection) {
                     ForEach(MenuBarSelection.allCases) { option in
                         Label {
                             Text(option.title)
@@ -70,6 +93,25 @@ struct DashboardView: View {
                             }
                         }
                         .tag(option)
+                    }
+                }
+
+                Picker("Menu Bar Period", selection: $menuBarWindow) {
+                    ForEach(MenuBarWindow.allCases) { option in
+                        Label(
+                            option.title,
+                            systemImage: option == .session
+                                ? "clock"
+                                : "calendar"
+                        )
+                        .tag(option)
+                    }
+                }
+
+                Picker("Refresh", selection: $refreshInterval) {
+                    ForEach(RefreshIntervalOption.allCases) { option in
+                        Text(option.title)
+                            .tag(option)
                     }
                 }
 
@@ -98,6 +140,7 @@ struct DashboardView: View {
                         systemImage: "arrow.triangle.2.circlepath"
                     )
                 }
+                .disabled(isCheckingForUpdates)
 
                 Link(destination: AppLinks.repository) {
                     Label("Star AI Usage on GitHub", systemImage: "star")
@@ -107,11 +150,7 @@ struct DashboardView: View {
                     NSApplication.shared.terminate(nil)
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "gearshape")
-                    Image(systemName: "chevron.down")
-                        .font(.caption2.weight(.semibold))
-                }
+                Image(systemName: "gearshape")
             }
             .menuStyle(.button)
             .buttonStyle(.glass)
@@ -162,13 +201,17 @@ struct RefreshButtonLabel: View {
 
 struct DashboardContentView: View {
     @Bindable var store: UsageStore
+    @Binding var usageDisplayMode: UsageDisplayMode
 
     var body: some View {
         VStack(spacing: 8) {
             header
             ForEach(ProviderID.allCases) { provider in
                 if let state = store.states[provider] {
-                    ProviderSectionView(state: state)
+                    ProviderSectionView(
+                        state: state,
+                        displayMode: usageDisplayMode
+                    )
                 }
             }
         }
@@ -184,6 +227,16 @@ struct DashboardContentView: View {
             Text("AI Usage")
                 .font(.headline.weight(.semibold))
             Spacer()
+            Picker("Numbers", selection: $usageDisplayMode) {
+                ForEach(UsageDisplayMode.allCases) { mode in
+                    Text(mode.title)
+                        .tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 112)
         }
         .padding(.horizontal, 4)
         .frame(height: 28)

@@ -4,6 +4,7 @@ import Observation
 struct MenuBarReading: Equatable, Sendable {
     let provider: ProviderID?
     let percent: Double?
+    let displayMode: UsageDisplayMode
     let isStale: Bool
     let showsPlaceholder: Bool
 }
@@ -14,15 +15,15 @@ final class UsageStore {
     private(set) var states: [ProviderID: ProviderState]
     private(set) var lastAttemptAt: Date?
     private(set) var lastSuccessfulRefreshAt: Date?
+    private(set) var refreshInterval: RefreshIntervalOption
 
     private let providers: [any UsageProvider]
-    private let refreshInterval: Duration
     private var cadenceTask: Task<Void, Never>?
     private var refreshTask: Task<[FetchResult], Never>?
 
     init(
         providers: [any UsageProvider] = [ClaudeProvider(), CodexProvider()],
-        refreshInterval: Duration = .seconds(300)
+        refreshInterval: RefreshIntervalOption = .fiveMinutes
     ) {
         self.providers = providers
         self.refreshInterval = refreshInterval
@@ -42,6 +43,15 @@ final class UsageStore {
         cadenceTask = nil
         refreshTask?.cancel()
         refreshTask = nil
+    }
+
+    func setRefreshInterval(_ interval: RefreshIntervalOption) {
+        guard refreshInterval != interval else { return }
+        refreshInterval = interval
+
+        guard cadenceTask != nil else { return }
+        cadenceTask?.cancel()
+        cadenceTask = makeCadenceTask(refreshImmediately: false)
     }
 
     func refreshNow() {
@@ -122,12 +132,18 @@ final class UsageStore {
         }
     }
 
-    func menuBarReading(for selection: MenuBarSelection) -> MenuBarReading {
+    func menuBarReading(
+        for selection: MenuBarSelection,
+        window windowSelection: MenuBarWindow = .session,
+        displayMode: UsageDisplayMode = .used
+    ) -> MenuBarReading {
         switch selection {
         case .automatic:
             let candidates = ProviderID.allCases.compactMap { provider -> (ProviderID, Double, Bool)? in
                 guard let state = states[provider],
-                      let value = state.snapshot?.indicatorWindow?.usedPercent else {
+                      let value = state.snapshot?
+                        .primaryWindow(for: windowSelection)?
+                        .usedPercent else {
                     return nil
                 }
                 return (provider, value, state.isStale)
@@ -136,13 +152,15 @@ final class UsageStore {
                 return MenuBarReading(
                     provider: nil,
                     percent: nil,
+                    displayMode: displayMode,
                     isStale: false,
                     showsPlaceholder: false
                 )
             }
             return MenuBarReading(
                 provider: highest.0,
-                percent: highest.1,
+                percent: displayMode.displayedPercent(from: highest.1),
+                displayMode: displayMode,
                 isStale: highest.2,
                 showsPlaceholder: false
             )
@@ -150,23 +168,28 @@ final class UsageStore {
         case .claude, .codex:
             let provider: ProviderID = selection == .claude ? .claude : .codex
             let state = states[provider]
+            let window = state?.snapshot?.primaryWindow(for: windowSelection)
             return MenuBarReading(
                 provider: provider,
-                percent: state?.snapshot?.indicatorWindow?.usedPercent,
+                percent: window.map {
+                    displayMode.displayedPercent(from: $0.usedPercent)
+                },
+                displayMode: displayMode,
                 isStale: state?.isStale == true,
-                showsPlaceholder: state?.snapshot?.indicatorWindow == nil
+                showsPlaceholder: window == nil
             )
         }
     }
 
     private func makeCadenceTask(refreshImmediately: Bool) -> Task<Void, Never> {
-        Task { [weak self, refreshInterval] in
+        let duration = refreshInterval.duration
+        return Task { [weak self, duration] in
             if refreshImmediately {
                 await self?.refresh()
             }
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: refreshInterval)
+                    try await Task.sleep(for: duration)
                 } catch {
                     return
                 }

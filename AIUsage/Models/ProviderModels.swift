@@ -60,10 +60,13 @@ struct ProviderSnapshot: Equatable, Sendable {
         windows.first { $0.kind == .session }
     }
 
-    /// The provider's best current headline value. Some Codex plans currently expose only a
-    /// weekly window, so a session-only lookup would turn a valid response into `--`.
-    var indicatorWindow: QuotaWindow? {
-        sessionWindow ?? windows.first
+    func primaryWindow(for selection: MenuBarWindow) -> QuotaWindow? {
+        switch selection {
+        case .session:
+            windows.first { $0.kind == .session }
+        case .weekly:
+            windows.first { $0.kind == .weekly }
+        }
     }
 }
 
@@ -116,9 +119,9 @@ enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .automatic: "Auto — Highest current usage"
-        case .claude: "Claude current limit"
-        case .codex: "Codex current limit"
+        case .automatic: "Auto — Highest usage"
+        case .claude: "Claude Code"
+        case .codex: "Codex"
         }
     }
 
@@ -127,6 +130,84 @@ enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
         case .automatic: nil
         case .claude: .claude
         case .codex: .codex
+        }
+    }
+}
+
+enum MenuBarWindow: String, CaseIterable, Identifiable, Sendable {
+    case session
+    case weekly
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .session: "Session"
+        case .weekly: "Weekly"
+        }
+    }
+}
+
+enum UsageDisplayMode: String, CaseIterable, Identifiable, Sendable {
+    case used
+    case remaining
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .used: "Used"
+        case .remaining: "Left"
+        }
+    }
+
+    var valueSuffix: String {
+        switch self {
+        case .used: "used"
+        case .remaining: "left"
+        }
+    }
+
+    func displayedPercent(from usedPercent: Double) -> Double {
+        switch self {
+        case .used:
+            usedPercent
+        case .remaining:
+            100 - min(max(usedPercent, 0), 100)
+        }
+    }
+
+    func renderedFraction(from usedPercent: Double) -> Double {
+        min(max(displayedPercent(from: usedPercent) / 100, 0), 1)
+    }
+}
+
+enum RefreshIntervalOption: String, CaseIterable, Identifiable, Sendable {
+    case oneMinute
+    case fiveMinutes
+    case fifteenMinutes
+    case thirtyMinutes
+    case oneHour
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .oneMinute: "Every minute"
+        case .fiveMinutes: "Every 5 minutes"
+        case .fifteenMinutes: "Every 15 minutes"
+        case .thirtyMinutes: "Every 30 minutes"
+        case .oneHour: "Every hour"
+        }
+    }
+
+    var duration: Duration {
+        switch self {
+        case .oneMinute: .seconds(60)
+        case .fiveMinutes: .seconds(300)
+        case .fifteenMinutes: .seconds(900)
+        case .thirtyMinutes: .seconds(1_800)
+        case .oneHour: .seconds(3_600)
         }
     }
 }

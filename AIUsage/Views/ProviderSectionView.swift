@@ -3,10 +3,19 @@ import SwiftUI
 
 struct ProviderSectionView: View {
     let state: ProviderState
+    let displayMode: UsageDisplayMode
     private let columns = [
         GridItem(.flexible(), spacing: 0),
         GridItem(.flexible(), spacing: 0)
     ]
+
+    init(
+        state: ProviderState,
+        displayMode: UsageDisplayMode = .used
+    ) {
+        self.state = state
+        self.displayMode = displayMode
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -15,7 +24,7 @@ struct ProviderSectionView: View {
                 let rowCount = (snapshot.windows.count + 1) / 2
                 LazyVGrid(columns: columns, spacing: 0) {
                     ForEach(Array(snapshot.windows.enumerated()), id: \.element.id) { index, window in
-                        QuotaTile(window: window)
+                        QuotaTile(window: window, displayMode: displayMode)
                             .overlay(alignment: .trailing) {
                                 if index.isMultiple(of: 2), index + 1 < snapshot.windows.count {
                                     Color(nsColor: .separatorColor)
@@ -97,6 +106,7 @@ struct ProviderSectionView: View {
 
 private struct QuotaTile: View {
     let window: QuotaWindow
+    let displayMode: UsageDisplayMode
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
@@ -106,11 +116,16 @@ private struct QuotaTile: View {
                         .font(.caption.weight(.medium))
                         .lineLimit(1)
                     Spacer(minLength: 4)
-                    Text(percentText)
-                        .font(.title3.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(tint)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(percentText)
+                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(tint)
+                        Text(displayMode.valueSuffix)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 }
 
                 GeometryReader { geometry in
@@ -119,7 +134,12 @@ private struct QuotaTile: View {
                             .fill(.primary.opacity(0.1))
                         Capsule()
                             .fill(tint)
-                            .frame(width: geometry.size.width * window.renderedFraction)
+                            .frame(
+                                width: geometry.size.width *
+                                    displayMode.renderedFraction(
+                                        from: window.usedPercent
+                                    )
+                            )
                     }
                 }
                 .frame(height: 4)
@@ -146,7 +166,7 @@ private struct QuotaTile: View {
     }
 
     private var percentText: String {
-        let value = window.usedPercent
+        let value = displayMode.displayedPercent(from: window.usedPercent)
         if value.rounded() == value {
             return "\(Int(value))%"
         }
@@ -180,10 +200,11 @@ private struct QuotaTile: View {
     }
 
     private func accessibilityValue(relativeTo now: Date) -> String {
+        let usage = "\(percentText) \(displayMode.valueSuffix)"
         guard let reset = window.resetsAt else {
-            return "\(percentText) used"
+            return usage
         }
-        return "\(percentText) used, \(resetText(reset, relativeTo: now))"
+        return "\(usage), \(resetText(reset, relativeTo: now))"
     }
 }
 

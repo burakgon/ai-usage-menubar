@@ -11,7 +11,9 @@ struct MenuBarLabelView: View {
                 Image(systemName: "gauge.with.dots.needle.50percent")
             }
             if let percent = reading.percent {
-                Text("\(Int(percent.rounded()))%")
+                Text(
+                    "\(Int(percent.rounded()))% \(reading.displayMode.valueSuffix)"
+                )
                     .monospacedDigit()
             } else if reading.showsPlaceholder {
                 Text("--")
@@ -27,9 +29,11 @@ struct MenuBarLabelView: View {
     private var accessibilityText: String {
         let subject = reading.provider?.displayName ?? "AI usage"
         if let percent = reading.percent {
+            let value =
+                "\(Int(percent.rounded())) percent \(reading.displayMode.valueSuffix)"
             return reading.isStale
-                ? "\(subject) \(Int(percent.rounded())) percent, stale"
-                : "\(subject) \(Int(percent.rounded())) percent"
+                ? "\(subject) \(value), stale"
+                : "\(subject) \(value)"
         }
         return subject
     }

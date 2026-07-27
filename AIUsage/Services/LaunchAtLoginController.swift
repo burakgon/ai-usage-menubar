@@ -40,6 +40,9 @@ struct MainAppLaunchAtLoginService: LaunchAtLoginServicing {
 @MainActor
 @Observable
 final class LaunchAtLoginController {
+    private static let defaultActivationKey =
+        "launchAtLoginDefaultActivationApplied"
+
     private(set) var isEnabled = false
     private(set) var requiresApproval = false
     private(set) var errorMessage: String?
@@ -66,6 +69,23 @@ final class LaunchAtLoginController {
             errorMessage = enabled
                 ? "Launch at Login could not be enabled."
                 : "Launch at Login could not be disabled."
+        }
+    }
+
+    func enableByDefaultIfNeeded(defaults: UserDefaults = .standard) {
+        guard !defaults.bool(forKey: Self.defaultActivationKey) else { return }
+
+        synchronize()
+        switch service.status {
+        case .enabled, .requiresApproval:
+            defaults.set(true, forKey: Self.defaultActivationKey)
+        case .notRegistered:
+            setEnabled(true)
+            if isEnabled {
+                defaults.set(true, forKey: Self.defaultActivationKey)
+            }
+        case .unavailable:
+            break
         }
     }
 

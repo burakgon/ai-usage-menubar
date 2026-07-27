@@ -71,7 +71,12 @@ final class VisualSnapshotTests: XCTestCase {
             let view = DashboardView(
                 store: store,
                 launchAtLogin: LaunchAtLoginController(service: SnapshotLoginService()),
-                menuBarSelection: .constant(.automatic)
+                menuBarSelection: .constant(.automatic),
+                menuBarWindow: .constant(.session),
+                usageDisplayMode: .constant(.used),
+                refreshInterval: .constant(.fiveMinutes),
+                availableUpdateVersion: nil,
+                isCheckingForUpdates: false
             )
             .environment(\.colorScheme, colorScheme)
             .environment(\._accessibilityReduceTransparency, reducesTransparency)
@@ -81,6 +86,27 @@ final class VisualSnapshotTests: XCTestCase {
             XCTAssertLessThan(size.height, 500)
             XCTAssertGreaterThan(size.height, 250)
         }
+    }
+
+    func testDashboardStaysCompactWithRemainingUsageAndUpdateAction() async {
+        let store = await makePopulatedStore()
+        let view = DashboardView(
+            store: store,
+            launchAtLogin: LaunchAtLoginController(service: SnapshotLoginService()),
+            menuBarSelection: .constant(.codex),
+            menuBarWindow: .constant(.weekly),
+            usageDisplayMode: .constant(.remaining),
+            refreshInterval: .constant(.fifteenMinutes),
+            availableUpdateVersion: "0.2.0",
+            isCheckingForUpdates: false
+        )
+        .environment(\.colorScheme, .dark)
+
+        let size = measuredSize(of: view, width: panelWidth)
+
+        XCTAssertEqual(size.width, panelWidth, accuracy: 0.5)
+        XCTAssertLessThan(size.height, 500)
+        XCTAssertGreaterThan(size.height, 250)
     }
 
     func testProviderSurfaceKeepsOddQuotaCountCompact() {

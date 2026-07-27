@@ -24,12 +24,33 @@ final class LaunchAtLoginTests: XCTestCase {
         XCTAssertTrue(controller.isEnabled)
         XCTAssertTrue(controller.requiresApproval)
     }
+
+    func testLaunchAtLoginIsEnabledByDefaultOnlyOnce() {
+        let suiteName = "LaunchAtLoginTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let service = FakeLaunchAtLoginService(status: .notRegistered)
+        let controller = LaunchAtLoginController(service: service)
+
+        controller.enableByDefaultIfNeeded(defaults: defaults)
+
+        XCTAssertTrue(controller.isEnabled)
+        XCTAssertEqual(service.registerCallCount, 1)
+
+        controller.setEnabled(false)
+        controller.enableByDefaultIfNeeded(defaults: defaults)
+
+        XCTAssertFalse(controller.isEnabled)
+        XCTAssertEqual(service.registerCallCount, 1)
+    }
 }
 
 @MainActor
 private final class FakeLaunchAtLoginService: LaunchAtLoginServicing {
     var status: LaunchAtLoginStatus
     var shouldFail = false
+    var registerCallCount = 0
 
     init(status: LaunchAtLoginStatus) {
         self.status = status
@@ -37,6 +58,7 @@ private final class FakeLaunchAtLoginService: LaunchAtLoginServicing {
 
     func register() throws {
         if shouldFail { throw FakeError.failure }
+        registerCallCount += 1
         status = .enabled
     }
 
