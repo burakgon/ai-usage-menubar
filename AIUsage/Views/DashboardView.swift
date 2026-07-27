@@ -207,7 +207,8 @@ struct DashboardContentView: View {
         VStack(spacing: 8) {
             header
             ForEach(ProviderID.allCases) { provider in
-                if let state = store.states[provider] {
+                if let state = store.states[provider],
+                   state.isVisibleInDashboard {
                     ProviderSectionView(
                         state: state,
                         displayMode: usageDisplayMode

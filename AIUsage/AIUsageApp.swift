@@ -12,7 +12,8 @@ struct AIUsageApp: App {
     @AppStorage("menuBarWindow")
     private var menuBarWindow: MenuBarWindow = .session
     @AppStorage("usageDisplayMode")
-    private var usageDisplayMode: UsageDisplayMode = .used
+    private var usageDisplayMode: UsageDisplayMode =
+        UsageDisplayMode.defaultSelection
     @AppStorage("refreshInterval")
     private var refreshInterval: RefreshIntervalOption = .fiveMinutes
 

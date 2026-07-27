@@ -59,6 +59,23 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertEqual(idleSize.height, RefreshButtonLabel.size, accuracy: 0.5)
     }
 
+    func testMenuBarLabelKeepsUsageMeaningOutOfVisibleText() {
+        for displayMode in UsageDisplayMode.allCases {
+            let size = measuredSize(
+                of: MenuBarLabelView(reading: MenuBarReading(
+                    provider: .codex,
+                    percent: 62,
+                    displayMode: displayMode,
+                    isStale: false,
+                    showsPlaceholder: false
+                )),
+                width: 200
+            )
+
+            XCTAssertLessThan(size.width, 60)
+        }
+    }
+
     func testDashboardFitsCompactPanelInLightAndDark() async {
         let store = await makePopulatedStore()
         let configurations: [(ColorScheme, Bool)] = [
@@ -128,7 +145,7 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 130)
     }
 
-    func testProviderLoadingAndFailureStatesStayInsideOneCompactSurface() {
+    func testProviderLoadingAndTransientFailureStatesStayInsideOneCompactSurface() {
         var loadingState = ProviderState(provider: .claude)
         loadingState.isRefreshing = true
         let loadingSize = measuredSize(
@@ -138,7 +155,7 @@ final class VisualSnapshotTests: XCTestCase {
 
         let failureState = ProviderState(
             provider: .codex,
-            failure: ProviderFailure(.authentication, "Sign in with Codex to show usage.")
+            failure: ProviderFailure(.transient, "Codex could not be reached.")
         )
         let failureSize = measuredSize(
             of: ProviderSectionView(state: failureState),
@@ -149,6 +166,22 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertLessThan(failureSize.height, 120)
         XCTAssertGreaterThan(loadingSize.height, 55)
         XCTAssertGreaterThan(failureSize.height, 55)
+    }
+
+    func testToolAvailabilityControlsVisibilityIndependentlyOfLogin() {
+        let missingTool = ProviderState(
+            provider: .claude,
+            failure: ProviderFailure(.authentication, "Not logged in."),
+            isToolInstalled: false
+        )
+        let loggedOut = ProviderState(
+            provider: .codex,
+            failure: ProviderFailure(.authentication, "Not logged in."),
+            isToolInstalled: true
+        )
+
+        XCTAssertFalse(missingTool.isVisibleInDashboard)
+        XCTAssertTrue(loggedOut.isVisibleInDashboard)
     }
 
     private func makePopulatedStore() async -> UsageStore {
@@ -213,7 +246,10 @@ final class VisualSnapshotTests: XCTestCase {
                 fetchedAt: now
             ))]
         )
-        let store = UsageStore(providers: [claude, codex])
+        let store = UsageStore(
+            providers: [claude, codex],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
         await store.refresh()
         return store
     }

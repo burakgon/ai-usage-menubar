@@ -18,14 +18,18 @@ final class UsageStore {
     private(set) var refreshInterval: RefreshIntervalOption
 
     private let providers: [any UsageProvider]
+    private let availabilityChecker: any ProviderAvailabilityChecking
     private var cadenceTask: Task<Void, Never>?
-    private var refreshTask: Task<[FetchResult], Never>?
+    private var refreshTask: Task<RefreshResult, Never>?
 
     init(
         providers: [any UsageProvider] = [ClaudeProvider(), CodexProvider()],
+        availabilityChecker: any ProviderAvailabilityChecking =
+            SystemProviderAvailabilityChecker(),
         refreshInterval: RefreshIntervalOption = .fiveMinutes
     ) {
         self.providers = providers
+        self.availabilityChecker = availabilityChecker
         self.refreshInterval = refreshInterval
         states = Dictionary(uniqueKeysWithValues: ProviderID.allCases.map {
             ($0, ProviderState(provider: $0))
@@ -75,8 +79,11 @@ final class UsageStore {
             states[provider.id]?.isRefreshing = true
         }
         let providers = self.providers
+        let availabilityChecker = self.availabilityChecker
         let task = Task {
-            await withTaskGroup(of: FetchResult.self) { group in
+            async let installedProviders =
+                availabilityChecker.installedProviders()
+            let fetchResults = await withTaskGroup(of: FetchResult.self) { group in
                 for provider in providers {
                     group.addTask {
                         do {
@@ -104,17 +111,29 @@ final class UsageStore {
                 }
                 return results
             }
+            return RefreshResult(
+                fetchResults: fetchResults,
+                installedProviders: await installedProviders
+            )
         }
         refreshTask = task
-        let results = await task.value
+        let result = await task.value
         refreshTask = nil
 
         lastAttemptAt = Date()
+        if let installedProviders = result.installedProviders {
+            for provider in ProviderID.allCases {
+                states[provider]?.isToolInstalled =
+                    installedProviders.contains(provider)
+            }
+        }
         var successfulDates: [Date] = []
-        for result in results {
-            var state = states[result.provider] ?? ProviderState(provider: result.provider)
+        for fetchResult in result.fetchResults {
+            var state =
+                states[fetchResult.provider] ??
+                ProviderState(provider: fetchResult.provider)
             state.isRefreshing = false
-            switch result.result {
+            switch fetchResult.result {
             case .success(let snapshot):
                 state.snapshot = snapshot
                 state.failure = nil
@@ -125,7 +144,7 @@ final class UsageStore {
                 }
                 state.failure = failure
             }
-            states[result.provider] = state
+            states[fetchResult.provider] = state
         }
         if let latest = successfulDates.max() {
             lastSuccessfulRefreshAt = latest
@@ -203,4 +222,9 @@ final class UsageStore {
 private struct FetchResult: Sendable {
     let provider: ProviderID
     let result: Result<ProviderSnapshot, ProviderFailure>
+}
+
+private struct RefreshResult: Sendable {
+    let fetchResults: [FetchResult]
+    let installedProviders: Set<ProviderID>?
 }

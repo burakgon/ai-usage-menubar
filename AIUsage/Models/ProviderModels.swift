@@ -106,8 +106,13 @@ struct ProviderState: Equatable, Sendable {
     var snapshot: ProviderSnapshot?
     var failure: ProviderFailure?
     var isRefreshing = false
+    var isToolInstalled: Bool?
 
     var isStale: Bool { snapshot != nil && failure != nil }
+
+    var isVisibleInDashboard: Bool {
+        isToolInstalled != false
+    }
 }
 
 enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
@@ -149,8 +154,10 @@ enum MenuBarWindow: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum UsageDisplayMode: String, CaseIterable, Identifiable, Sendable {
-    case used
     case remaining
+    case used
+
+    static let defaultSelection: Self = .remaining
 
     var id: Self { self }
 

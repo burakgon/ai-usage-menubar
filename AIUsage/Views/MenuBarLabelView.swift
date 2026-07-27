@@ -11,9 +11,7 @@ struct MenuBarLabelView: View {
                 Image(systemName: "gauge.with.dots.needle.50percent")
             }
             if let percent = reading.percent {
-                Text(
-                    "\(Int(percent.rounded()))% \(reading.displayMode.valueSuffix)"
-                )
+                Text("\(Int(percent.rounded()))%")
                     .monospacedDigit()
             } else if reading.showsPlaceholder {
                 Text("--")

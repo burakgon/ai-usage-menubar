@@ -15,6 +15,14 @@ struct MockEnvironment: EnvironmentReading {
     }
 }
 
+struct FixedProviderAvailabilityChecker: ProviderAvailabilityChecking {
+    var installed: Set<ProviderID>? = Set(ProviderID.allCases)
+
+    func installedProviders() async -> Set<ProviderID>? {
+        installed
+    }
+}
+
 final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String: String]

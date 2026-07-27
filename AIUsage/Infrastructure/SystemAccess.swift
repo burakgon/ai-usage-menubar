@@ -19,7 +19,11 @@ struct ProcessEnvironmentReader: EnvironmentReading {
 final class LoginShellEnvironment: @unchecked Sendable {
     static let shared = LoginShellEnvironment()
 
-    private static let supportedNames = ["CLAUDE_CONFIG_DIR", "CODEX_HOME"]
+    private static let supportedNames = [
+        "CLAUDE_CONFIG_DIR",
+        "CODEX_HOME",
+        "PATH"
+    ]
     private static let beginMarker = "__AIUSAGE_ENV_BEGIN__"
     private static let endMarker = "__AIUSAGE_ENV_END__"
 
@@ -98,6 +102,54 @@ final class LoginShellEnvironment: @unchecked Sendable {
             }
         }
         return environment
+    }
+}
+
+protocol ProviderAvailabilityChecking: Sendable {
+    func installedProviders() async -> Set<ProviderID>?
+}
+
+struct SystemProviderAvailabilityChecker: ProviderAvailabilityChecking {
+    private let environment: LoginShellEnvironment
+
+    init(environment: LoginShellEnvironment = .shared) {
+        self.environment = environment
+    }
+
+    func installedProviders() async -> Set<ProviderID>? {
+        await Task.detached(priority: .utility) {
+            guard let path = environment.value(for: "PATH") else {
+                return nil
+            }
+
+            return Set(ProviderID.allCases.filter { provider in
+                Self.containsExecutable(
+                    named: provider.rawValue,
+                    searchPath: path
+                )
+            })
+        }.value
+    }
+
+    private static func containsExecutable(
+        named executable: String,
+        searchPath: String
+    ) -> Bool {
+        searchPath
+            .split(separator: ":", omittingEmptySubsequences: true)
+            .contains { directory in
+                let candidate = URL(fileURLWithPath: expandHome(String(directory)))
+                    .appendingPathComponent(executable)
+                    .path
+                var isDirectory = ObjCBool(false)
+
+                return FileManager.default.fileExists(
+                    atPath: candidate,
+                    isDirectory: &isDirectory
+                ) &&
+                    !isDirectory.boolValue &&
+                    FileManager.default.isExecutableFile(atPath: candidate)
+            }
     }
 }
 

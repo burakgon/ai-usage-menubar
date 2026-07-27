@@ -48,11 +48,12 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 
 - Claude Code session, weekly, Sonnet, and Fable limits
 - Codex session, weekly, Spark, and Spark weekly limits
-- Used or remaining percentages, switchable directly in the panel
+- Remaining or used percentages, switchable directly in the panel
 - A selectable provider and session/weekly value directly in the menu bar
 - Configurable 1, 5, 15, 30, or 60-minute refresh and one-click manual refresh
 - Daily signed update checks and a manual **Check for Updates…** command
 - A direct **Update** button in the panel when a new version is available
+- Provider cards only for installed tools, with signed-out status kept visible
 - Native light and dark appearances with Liquid Glass
 - Launch at Login enabled by default and still user-controllable
 
@@ -103,6 +104,8 @@ The exact researched contracts are documented in
 The default **Auto** mode shows the provider with the highest used percentage
 for the selected period. You can independently choose Claude Code, Codex, or
 Auto; Session or Weekly; and whether numbers mean Used or Left.
+**Left** is the default number mode. The menu bar stays compact and shows only
+the selected percentage; its meaning remains visible in the panel.
 
 Raw percentages are shown exactly as reported by the provider. Only progress
 bar drawing is clamped to `0...100`. Remaining usage is bounded to `0...100`

@@ -18,7 +18,10 @@ final class UsageStoreTests: XCTestCase {
                 .failure(ProviderFailure(.transient, "Offline"))
             ]
         )
-        let store = UsageStore(providers: [claude])
+        let store = UsageStore(
+            providers: [claude],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
 
         await store.refresh()
         await store.refresh()
@@ -51,7 +54,10 @@ final class UsageStoreTests: XCTestCase {
                 .failure(ProviderFailure(.authentication, "Logged out"))
             ]
         )
-        let store = UsageStore(providers: [codex])
+        let store = UsageStore(
+            providers: [codex],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
 
         await store.refresh()
         await store.refresh()
@@ -78,7 +84,10 @@ final class UsageStoreTests: XCTestCase {
             id: .codex,
             results: [.success(snapshot(provider: .codex, percent: 81))]
         )
-        let store = UsageStore(providers: [claude, codex])
+        let store = UsageStore(
+            providers: [claude, codex],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
 
         await store.refresh()
 
@@ -111,9 +120,15 @@ final class UsageStoreTests: XCTestCase {
             ],
             fetchedAt: Date()
         )
-        let store = UsageStore(providers: [
-            SequencedProvider(id: .codex, results: [.success(weeklyOnly)])
-        ])
+        let store = UsageStore(
+            providers: [
+                SequencedProvider(
+                    id: .codex,
+                    results: [.success(weeklyOnly)]
+                )
+            ],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
 
         await store.refresh()
 
@@ -140,7 +155,10 @@ final class UsageStoreTests: XCTestCase {
     }
 
     func testRefreshIntervalCanBeChangedWithoutRecreatingTheStore() {
-        let store = UsageStore(providers: [])
+        let store = UsageStore(
+            providers: [],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
 
         XCTAssertEqual(store.refreshInterval, .fiveMinutes)
 
@@ -162,6 +180,44 @@ final class UsageStoreTests: XCTestCase {
             UsageDisplayMode.remaining.displayedPercent(from: -10),
             100
         )
+    }
+
+    func testRemainingUsageIsTheFirstAndDefaultDisplayOption() {
+        XCTAssertEqual(UsageDisplayMode.defaultSelection, .remaining)
+        XCTAssertEqual(UsageDisplayMode.allCases, [.remaining, .used])
+    }
+
+    func testToolAvailabilityIsIndependentFromLoginStatus() async {
+        let store = UsageStore(
+            providers: [
+                SequencedProvider(
+                    id: .claude,
+                    results: [.failure(ProviderFailure(
+                        .authentication,
+                        "Not logged in. Run `claude` to authenticate."
+                    ))]
+                ),
+                SequencedProvider(
+                    id: .codex,
+                    results: [.failure(ProviderFailure(
+                        .authentication,
+                        "Not logged in. Run `codex` to authenticate."
+                    ))]
+                )
+            ],
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: [.claude]
+            )
+        )
+
+        await store.refresh()
+
+        XCTAssertTrue(store.states[.claude]?.isVisibleInDashboard == true)
+        XCTAssertEqual(
+            store.states[.claude]?.failure?.message,
+            "Not logged in. Run `claude` to authenticate."
+        )
+        XCTAssertTrue(store.states[.codex]?.isVisibleInDashboard == false)
     }
 
     private func snapshot(provider: ProviderID, percent: Double) -> ProviderSnapshot {
