@@ -9,6 +9,7 @@ updates.
 - GitHub CLI authenticated for `burakgon/ai-usage-menubar`
 - The `ai-usage-menubar` Sparkle EdDSA key in the login Keychain
 - A `Developer ID Application` certificate for a notarized public build
+- The `macos-notary` notarytool profile in Keychain
 
 The Sparkle private key is never stored in this repository. The public key is
 embedded in `AIUsage/Info.plist`. Back up the private key in a secure secret
@@ -40,11 +41,11 @@ Developer ID builds retain Hardened Runtime. When no Developer ID certificate
 is available, the script disables Hardened Runtime for the ad-hoc build so
 macOS can load Sparkle's separately signed framework.
 
-If a Developer ID certificate and a `notarytool` Keychain profile are
-available, notarize in the same pass:
+For public releases, sign Sparkle's nested helpers, require an accepted Apple
+notarization result, and staple the ticket in the same pass:
 
 ```bash
-NOTARYTOOL_PROFILE=ai-usage-notary ./scripts/package_release.sh 0.1.0
+NOTARYTOOL_PROFILE=macos-notary ./scripts/package_release.sh 0.1.0
 ```
 
 ## Publish

@@ -6,6 +6,25 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.9</title>
+            <pubDate>Tue, 28 Jul 2026 23:28:34 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>0.1.9</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.9
+
+This release makes installing AI Usage seamless on macOS.
+
+- Signed with a Developer ID certificate and notarized by Apple.
+- Opens normally through Gatekeeper without the previous right-click workaround.
+- Includes a stapled notarization ticket so macOS can verify the download
+  reliably.
+- Keeps usage tracking, menu bar behavior, and existing preferences unchanged.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.9/AI-Usage.dmg" length="3901691" type="application/octet-stream" sparkle:edSignature="ydFdB54R0eWx3YiF0rjGG7j+JEEIXROttfxeRGG3ORbBkgO5jFJE+xREu/0Dxa/vvKEIGLimabLaLafDA21OAw=="/>
+        </item>
+        <item>
             <title>0.1.8</title>
             <pubDate>Tue, 28 Jul 2026 21:12:47 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -107,35 +126,9 @@ Thanks to [@cneren](https://github.com/cneren) for the contribution.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.5/AI-Usage.dmg" length="3439990" type="application/octet-stream" sparkle:edSignature="ITVQvvizZ92+LcaZMdTTSd5QxTLgN8ubFUAXguhKQIZku4Obc1QSIS3TUhxEDulBcoQ9CP/g7PpvacR0OJNqDQ=="/>
         </item>
-        <item>
-            <title>0.1.4</title>
-            <pubDate>Mon, 27 Jul 2026 13:03:37 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.4
-
-This release makes the menu bar more compact and provider availability more
-accurate.
-
-- Show only the percentage beside the provider icon in the menu bar.
-- Make **Left** the default and first display option, with **Used** available
-  on the right.
-- Hide a provider only when its `claude` or `codex` executable is genuinely
-  missing from the login-shell path.
-- Keep installed providers visible when signed out, expired, rate limited, or
-  temporarily unreachable so their real status remains clear.
-- Preserve the full used/left meaning in the panel and accessibility label.
-
-Tool discovery is cached with the login-shell environment and rechecks the
-resolved executable paths during usage refreshes.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.4/AI-Usage.dmg" length="3439404" type="application/octet-stream" sparkle:edSignature="DhGKmVc+L6uyXaxn9FINucEMVW6uLSRgc2CymwhKRxxIJ5Cgt9y/ilJDwBJjyfxe9rxca3fJuttfFR5BS57yAA=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 9Ut8i47ela4nalBuKkERk/Y4ngKQe/Cy6cn52NgsKfz08uu8oTQkoFs3XjWz7SroHBATcDUoUHF6I43+9IS0AA==
-length: 7605
+edSignature: zQRFDVtQc8uVBzX4Acne4ChjqE9Sv4gj0GZ5TsjCQlfDWFFho74SkZWhZqeHRuhuVrBjSdiPZw2cIbQ5l6YcBA==
+length: 7271
 -->

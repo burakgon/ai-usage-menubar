@@ -21,6 +21,7 @@ artifact_directory="$repository_directory/dist/v$version"
 release_notes="$repository_directory/docs/releases/$version.md"
 built_application="$derived_data_directory/Build/Products/Release/AI Usage.app"
 application_binary="$built_application/Contents/MacOS/AI Usage"
+sparkle_framework="$built_application/Contents/Frameworks/Sparkle.framework"
 disk_image="$artifact_directory/AI-Usage.dmg"
 checksum="$artifact_directory/AI-Usage.dmg.sha256"
 sparkle_account="ai-usage-menubar"
@@ -69,6 +70,7 @@ if [[ -n "$codesign_identity" ]]; then
     build_settings+=(
         "CODE_SIGN_STYLE=Manual"
         "CODE_SIGN_IDENTITY=$codesign_identity"
+        "CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO"
     )
 else
     printf 'Building a universal ad-hoc signed app…\n'
@@ -96,6 +98,37 @@ xcodebuild \
 if [[ ! -d "$built_application" ]]; then
     printf 'Release app was not produced at %s\n' "$built_application" >&2
     exit 1
+fi
+
+if [[ -n "$codesign_identity" ]]; then
+    printf 'Signing Sparkle helpers for Developer ID distribution…\n'
+    sparkle_version="$sparkle_framework/Versions/B"
+    codesign_options=(
+        --force
+        --sign "$codesign_identity"
+        --options runtime
+        --timestamp
+    )
+
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        "$sparkle_version/XPCServices/Installer.xpc"
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        --preserve-metadata=entitlements \
+        "$sparkle_version/XPCServices/Downloader.xpc"
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        "$sparkle_version/Autoupdate"
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        "$sparkle_version/Updater.app"
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        "$sparkle_framework"
+    /usr/bin/codesign \
+        "${codesign_options[@]}" \
+        "$built_application"
 fi
 
 /usr/bin/lipo -verify_arch arm64 "$application_binary"
@@ -221,10 +254,36 @@ if [[ -n "${NOTARYTOOL_PROFILE:-}" ]]; then
         exit 1
     fi
     printf 'Submitting DMG for notarization…\n'
+    notarization_result="$temporary_directory/notarization-result.json"
     xcrun notarytool submit \
         "$disk_image" \
         --keychain-profile "$NOTARYTOOL_PROFILE" \
-        --wait
+        --wait \
+        --output-format json > "$notarization_result"
+    sed -n '1,120p' "$notarization_result"
+
+    notarization_status="$(
+        /usr/bin/plutil \
+            -extract status \
+            raw \
+            -o - \
+            "$notarization_result"
+    )"
+    if [[ "$notarization_status" != "Accepted" ]]; then
+        notarization_id="$(
+            /usr/bin/plutil \
+                -extract id \
+                raw \
+                -o - \
+                "$notarization_result"
+        )"
+        printf 'Notarization failed with status %s.\n' "$notarization_status" >&2
+        xcrun notarytool log \
+            "$notarization_id" \
+            --keychain-profile "$NOTARYTOOL_PROFILE" >&2
+        exit 1
+    fi
+
     xcrun stapler staple "$disk_image"
     xcrun stapler validate "$disk_image"
 fi
