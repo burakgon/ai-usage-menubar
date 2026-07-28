@@ -133,6 +133,29 @@ actor SequencedProvider: UsageProvider {
     }
 }
 
+actor CountingProvider: UsageProvider {
+    nonisolated let id: ProviderID
+    private let result: Result<ProviderSnapshot, ProviderFailure>
+    private var count = 0
+
+    init(
+        id: ProviderID,
+        result: Result<ProviderSnapshot, ProviderFailure>
+    ) {
+        self.id = id
+        self.result = result
+    }
+
+    func fetch() async throws -> ProviderSnapshot {
+        count += 1
+        return try result.get()
+    }
+
+    func fetchCallCount() -> Int {
+        count
+    }
+}
+
 func httpResponse(
     _ status: Int = 200,
     json: String = "{}",

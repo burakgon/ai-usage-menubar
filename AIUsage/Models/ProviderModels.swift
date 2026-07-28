@@ -19,9 +19,18 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .codex: "ProviderCodex"
         }
     }
+
+    var descriptor: ProviderDescriptor {
+        ProviderDescriptor(
+            id: self,
+            displayName: displayName,
+            iconAssetName: iconAssetName,
+            executableName: rawValue
+        )
+    }
 }
 
-enum QuotaKind: String, Codable, Sendable {
+enum QuotaKind: String, Codable, Hashable, Sendable {
     case session
     case weekly
     case sonnet
@@ -39,6 +48,116 @@ enum QuotaKind: String, Codable, Sendable {
         case .sparkWeekly: "Spark Weekly"
         }
     }
+
+    var menuBarMetric: MenuBarMetricID {
+        switch self {
+        case .session: .session
+        case .weekly: .weekly
+        case .sonnet: .sonnet
+        case .fable: .fable
+        case .sparkSession: .spark
+        case .sparkWeekly: .sparkWeekly
+        }
+    }
+}
+
+enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
+    case session
+    case weekly
+    case sonnet
+    case fable
+    case spark
+    case sparkWeekly
+    case extraUsage
+    case credits
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .session: "Session"
+        case .weekly: "Weekly"
+        case .sonnet: "Sonnet"
+        case .fable: "Fable"
+        case .spark: "Spark"
+        case .sparkWeekly: "Spark Weekly"
+        case .extraUsage: "Extra Usage"
+        case .credits: "Credits"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .session: "clock"
+        case .weekly: "calendar"
+        case .sonnet: "waveform"
+        case .fable: "book.closed"
+        case .spark: "sparkles"
+        case .sparkWeekly: "calendar.badge.clock"
+        case .extraUsage: "dollarsign.circle"
+        case .credits: "creditcard"
+        }
+    }
+
+    var compactLabel: String {
+        switch self {
+        case .session: "S"
+        case .weekly: "W"
+        case .sonnet: "So"
+        case .fable: "F"
+        case .spark: "Sp"
+        case .sparkWeekly: "SpW"
+        case .extraUsage: "E"
+        case .credits: "C"
+        }
+    }
+
+    var quotaKind: QuotaKind? {
+        switch self {
+        case .session: .session
+        case .weekly: .weekly
+        case .sonnet: .sonnet
+        case .fable: .fable
+        case .spark: .sparkSession
+        case .sparkWeekly: .sparkWeekly
+        case .extraUsage, .credits: nil
+        }
+    }
+}
+
+struct MenuBarItemID: Codable, Hashable, Identifiable, Sendable {
+    let provider: ProviderID
+    let metric: MenuBarMetricID
+
+    var id: String { "\(provider.rawValue).\(metric.rawValue)" }
+    var title: String { "\(provider.displayName) · \(metric.title)" }
+}
+
+struct MenuBarProviderConfiguration:
+    Codable,
+    Equatable,
+    Identifiable,
+    Sendable
+{
+    let provider: ProviderID
+    let metrics: [MenuBarMetricID]
+
+    var id: ProviderID { provider }
+}
+
+struct ProviderDescriptor: Identifiable, Sendable {
+    let id: ProviderID
+    let displayName: String
+    let iconAssetName: String
+    let executableName: String
+}
+
+enum ProviderCatalog {
+    static let all = ProviderID.allCases.map(\.descriptor)
+
+    static func descriptor(for provider: ProviderID) -> ProviderDescriptor {
+        provider.descriptor
+    }
 }
 
 struct QuotaWindow: Identifiable, Equatable, Sendable {
@@ -50,61 +169,109 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
     var renderedFraction: Double { min(max(usedPercent / 100, 0), 1) }
 }
 
-struct CreditUsage: Equatable, Sendable {
-    let usedAmount: Double?
-    let limitAmount: Double?
-    let balanceAmount: Double?
-    let usedPercent: Double?
-    let currencyCode: String
-    let isUnlimited: Bool
+enum BillingUsage: Equatable, Sendable {
+    case boundedSpend(
+        usedAmount: Double,
+        limitAmount: Double,
+        currencyCode: String
+    )
+    case unboundedSpend(
+        usedAmount: Double,
+        currencyCode: String
+    )
+    case flexCreditBalance(
+        remainingCredits: Int,
+        usdValue: Double
+    )
 
-    init(
-        usedAmount: Double? = nil,
-        limitAmount: Double? = nil,
-        balanceAmount: Double? = nil,
-        usedPercent: Double? = nil,
-        currencyCode: String = "USD",
-        isUnlimited: Bool = false
-    ) {
-        self.usedAmount = usedAmount
-        self.limitAmount = limitAmount
-        self.balanceAmount = balanceAmount
-        self.usedPercent = usedPercent
-        self.currencyCode = currencyCode
-        self.isUnlimited = isUnlimited
-    }
-
-    var remainingAmount: Double? {
-        guard let usedAmount, let limitAmount else {
-            return nil
+    var menuBarMetric: MenuBarMetricID {
+        switch self {
+        case .boundedSpend, .unboundedSpend: .extraUsage
+        case .flexCreditBalance: .credits
         }
-        return max(limitAmount - usedAmount, 0)
     }
+
+    func menuBarValue(
+        displayMode: UsageDisplayMode
+    ) -> MenuBarReadingValue {
+        switch self {
+        case let .boundedSpend(usedAmount, limitAmount, currencyCode):
+            let amount = displayMode == .used
+                ? usedAmount
+                : max(limitAmount - usedAmount, 0)
+            return .money(amount: amount, currencyCode: currencyCode)
+        case let .unboundedSpend(usedAmount, currencyCode):
+            return .money(amount: usedAmount, currencyCode: currencyCode)
+        case let .flexCreditBalance(remainingCredits, usdValue):
+            return .credits(
+                remaining: remainingCredits,
+                usdValue: usdValue
+            )
+        }
+    }
+}
+
+enum MenuBarReadingValue: Equatable, Sendable {
+    case percentage(Double)
+    case money(amount: Double, currencyCode: String)
+    case credits(remaining: Int, usdValue: Double)
 }
 
 struct ProviderSnapshot: Equatable, Sendable {
     let provider: ProviderID
     let planName: String?
     let windows: [QuotaWindow]
-    let creditUsage: CreditUsage?
+    let billingUsage: BillingUsage?
     let fetchedAt: Date
 
     init(
         provider: ProviderID,
         planName: String?,
         windows: [QuotaWindow],
-        creditUsage: CreditUsage? = nil,
+        billingUsage: BillingUsage? = nil,
         fetchedAt: Date
     ) {
         self.provider = provider
         self.planName = planName
         self.windows = windows
-        self.creditUsage = creditUsage
+        self.billingUsage = billingUsage
         self.fetchedAt = fetchedAt
     }
 
     var sessionWindow: QuotaWindow? {
         windows.first { $0.kind == .session }
+    }
+
+    func window(for metric: MenuBarMetricID) -> QuotaWindow? {
+        guard let quotaKind = metric.quotaKind else { return nil }
+        return windows.first { $0.kind == quotaKind }
+    }
+
+    var availableMenuBarItems: [MenuBarItemID] {
+        var items = windows.map {
+            MenuBarItemID(provider: provider, metric: $0.kind.menuBarMetric)
+        }
+        if let billingUsage {
+            items.append(MenuBarItemID(
+                provider: provider,
+                metric: billingUsage.menuBarMetric
+            ))
+        }
+        var seen: Set<MenuBarItemID> = []
+        return items.filter { seen.insert($0).inserted }
+    }
+
+    func menuBarValue(
+        for metric: MenuBarMetricID,
+        displayMode: UsageDisplayMode
+    ) -> MenuBarReadingValue? {
+        if let window = window(for: metric) {
+            return .percentage(
+                displayMode.displayedPercent(from: window.usedPercent)
+            )
+        }
+        guard billingUsage?.menuBarMetric == metric else { return nil }
+        return billingUsage?.menuBarValue(displayMode: displayMode)
     }
 
     func primaryWindow(for selection: MenuBarWindow) -> QuotaWindow? {

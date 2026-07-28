@@ -2,17 +2,42 @@ import Foundation
 import Observation
 
 struct MenuBarReading: Equatable, Sendable {
-    let provider: ProviderID?
-    let percent: Double?
+    let provider: ProviderID
+    let metric: MenuBarMetricID
+    let value: MenuBarReadingValue
     let displayMode: UsageDisplayMode
     let isStale: Bool
-    let showsPlaceholder: Bool
+
+    init(
+        provider: ProviderID,
+        metric: MenuBarMetricID,
+        value: MenuBarReadingValue,
+        displayMode: UsageDisplayMode,
+        isStale: Bool
+    ) {
+        self.provider = provider
+        self.metric = metric
+        self.value = value
+        self.displayMode = displayMode
+        self.isStale = isStale
+    }
+}
+
+struct MenuBarProviderReadings: Equatable, Identifiable, Sendable {
+    let provider: ProviderID
+    let selectedMetrics: [MenuBarMetricID]
+    let readings: [MenuBarReading]
+
+    var id: ProviderID { provider }
+    var showsMetricLabels: Bool { selectedMetrics.count > 1 }
 }
 
 @MainActor
 @Observable
 final class UsageStore {
     private(set) var states: [ProviderID: ProviderState]
+    private(set) var installedProviderIDs: Set<ProviderID>?
+    private(set) var trackedProviderIDs: Set<ProviderID>
     private(set) var lastAttemptAt: Date?
     private(set) var lastSuccessfulRefreshAt: Date?
     private(set) var refreshInterval: RefreshIntervalOption
@@ -20,17 +45,20 @@ final class UsageStore {
     private let providers: [any UsageProvider]
     private let availabilityChecker: any ProviderAvailabilityChecking
     private var cadenceTask: Task<Void, Never>?
-    private var refreshTask: Task<RefreshResult, Never>?
+    private var refreshTask: Task<Void, Never>?
+    private var refreshGeneration = 0
 
     init(
         providers: [any UsageProvider] = [ClaudeProvider(), CodexProvider()],
         availabilityChecker: any ProviderAvailabilityChecking =
             SystemProviderAvailabilityChecker(),
-        refreshInterval: RefreshIntervalOption = .fiveMinutes
+        refreshInterval: RefreshIntervalOption = .fiveMinutes,
+        trackedProviderIDs: Set<ProviderID> = Set(ProviderID.allCases)
     ) {
         self.providers = providers
         self.availabilityChecker = availabilityChecker
         self.refreshInterval = refreshInterval
+        self.trackedProviderIDs = trackedProviderIDs
         states = Dictionary(uniqueKeysWithValues: ProviderID.allCases.map {
             ($0, ProviderState(provider: $0))
         })
@@ -45,8 +73,26 @@ final class UsageStore {
     func stop() {
         cadenceTask?.cancel()
         cadenceTask = nil
-        refreshTask?.cancel()
-        refreshTask = nil
+        cancelRefresh()
+    }
+
+    func setTrackedProviders(_ providers: Set<ProviderID>) {
+        guard trackedProviderIDs != providers else { return }
+
+        let newlyEnabled = providers.subtracting(trackedProviderIDs)
+        trackedProviderIDs = providers
+        for provider in ProviderID.allCases where !providers.contains(provider) {
+            states[provider]?.isRefreshing = false
+        }
+
+        guard cadenceTask != nil else { return }
+        cadenceTask?.cancel()
+        cadenceTask = nil
+        cancelRefresh()
+        cadenceTask = makeCadenceTask(
+            refreshImmediately: !newlyEnabled.isEmpty,
+            initialProviderIDs: newlyEnabled.isEmpty ? nil : newlyEnabled
+        )
     }
 
     func setRefreshInterval(_ interval: RefreshIntervalOption) {
@@ -61,30 +107,43 @@ final class UsageStore {
     func refreshNow() {
         cadenceTask?.cancel()
         cadenceTask = nil
-        Task { [weak self] in
-            guard let self else { return }
-            await self.refresh()
-            guard !Task.isCancelled else { return }
-            self.cadenceTask = self.makeCadenceTask(refreshImmediately: false)
-        }
+        cancelRefresh()
+        cadenceTask = makeCadenceTask(refreshImmediately: true)
     }
 
-    func refresh() async {
+    func refresh(providerIDs requestedProviderIDs: Set<ProviderID>? = nil) async {
         if let refreshTask {
-            _ = await refreshTask.value
+            await refreshTask.value
             return
         }
 
-        for provider in providers {
-            states[provider.id]?.isRefreshing = true
-        }
+        refreshGeneration += 1
+        let generation = refreshGeneration
         let providers = self.providers
+        let trackedProviderIDs = self.trackedProviderIDs
         let availabilityChecker = self.availabilityChecker
-        let task = Task {
-            async let installedProviders =
-                availabilityChecker.installedProviders()
-            let fetchResults = await withTaskGroup(of: FetchResult.self) { group in
-                for provider in providers {
+        let task = Task { [weak self] in
+            let installedProviders =
+                await availabilityChecker.installedProviders()
+            guard !Task.isCancelled else { return }
+
+            self?.applyInstalledProviders(installedProviders)
+
+            let requested = requestedProviderIDs ?? trackedProviderIDs
+            let effectiveProviders = providers.filter { provider in
+                trackedProviderIDs.contains(provider.id) &&
+                    requested.contains(provider.id) &&
+                    (installedProviders?.contains(provider.id) ?? true)
+            }
+
+            for provider in effectiveProviders {
+                self?.states[provider.id]?.isRefreshing = true
+            }
+
+            let fetchResults = await withTaskGroup(
+                of: FetchResult.self
+            ) { group in
+                for provider in effectiveProviders {
                     group.addTask {
                         do {
                             return FetchResult(
@@ -92,7 +151,10 @@ final class UsageStore {
                                 result: .success(try await provider.fetch())
                             )
                         } catch let failure as ProviderFailure {
-                            return FetchResult(provider: provider.id, result: .failure(failure))
+                            return FetchResult(
+                                provider: provider.id,
+                                result: .failure(failure)
+                            )
                         } catch {
                             return FetchResult(
                                 provider: provider.id,
@@ -111,24 +173,125 @@ final class UsageStore {
                 }
                 return results
             }
-            return RefreshResult(
-                fetchResults: fetchResults,
-                installedProviders: await installedProviders
-            )
+
+            guard !Task.isCancelled else { return }
+            self?.applyFetchResults(fetchResults)
         }
         refreshTask = task
-        let result = await task.value
-        refreshTask = nil
+        await task.value
+        if generation == refreshGeneration {
+            refreshTask = nil
+        }
+    }
 
-        lastAttemptAt = Date()
-        if let installedProviders = result.installedProviders {
-            for provider in ProviderID.allCases {
-                states[provider]?.isToolInstalled =
-                    installedProviders.contains(provider)
+    func isProviderVisibleInDashboard(_ provider: ProviderID) -> Bool {
+        trackedProviderIDs.contains(provider) &&
+            states[provider]?.isToolInstalled != false
+    }
+
+    func availableMenuBarItems(
+        for provider: ProviderID
+    ) -> [MenuBarItemID] {
+        guard trackedProviderIDs.contains(provider),
+              states[provider]?.isToolInstalled != false else {
+            return []
+        }
+        return states[provider]?.snapshot?.availableMenuBarItems ?? []
+    }
+
+    var availableMenuBarItemsByProvider:
+        [ProviderID: [MenuBarItemID]] {
+        Dictionary(uniqueKeysWithValues: ProviderID.allCases.map {
+            ($0, availableMenuBarItems(for: $0))
+        })
+    }
+
+    func isMenuBarItemAvailable(_ item: MenuBarItemID) -> Bool {
+        availableMenuBarItems(for: item.provider).contains(item)
+    }
+
+    func menuBarReadings(
+        for items: [MenuBarItemID],
+        displayMode: UsageDisplayMode = .used
+    ) -> [MenuBarReading] {
+        items.compactMap { item in
+            guard trackedProviderIDs.contains(item.provider),
+                  let state = states[item.provider],
+                  state.isToolInstalled != false,
+                  let value = state.snapshot?.menuBarValue(
+                    for: item.metric,
+                    displayMode: displayMode
+                  ) else {
+                return nil
+            }
+
+            return MenuBarReading(
+                provider: item.provider,
+                metric: item.metric,
+                value: value,
+                displayMode: displayMode,
+                isStale: state.isStale
+            )
+        }
+    }
+
+    func menuBarProviderReadings(
+        for configurations: [MenuBarProviderConfiguration],
+        displayMode: UsageDisplayMode = .used
+    ) -> [MenuBarProviderReadings] {
+        configurations.compactMap { configuration in
+            guard trackedProviderIDs.contains(configuration.provider),
+                  let state = states[configuration.provider],
+                  state.isToolInstalled != false else {
+                return nil
+            }
+
+            let items = configuration.metrics.map {
+                MenuBarItemID(
+                    provider: configuration.provider,
+                    metric: $0
+                )
+            }
+            return MenuBarProviderReadings(
+                provider: configuration.provider,
+                selectedMetrics: configuration.metrics,
+                readings: menuBarReadings(
+                    for: items,
+                    displayMode: displayMode
+                )
+            )
+        }
+    }
+
+    func menuBarReading(
+        for item: MenuBarItemID,
+        displayMode: UsageDisplayMode = .used
+    ) -> MenuBarReading? {
+        menuBarReadings(for: [item], displayMode: displayMode).first
+    }
+
+    private func applyInstalledProviders(_ installedProviders: Set<ProviderID>?) {
+        installedProviderIDs = installedProviders
+        guard let installedProviders else { return }
+
+        for provider in ProviderID.allCases {
+            states[provider]?.isToolInstalled =
+                installedProviders.contains(provider)
+            if !installedProviders.contains(provider) {
+                states[provider]?.isRefreshing = false
             }
         }
+    }
+
+    private func applyFetchResults(_ fetchResults: [FetchResult]) {
+        lastAttemptAt = Date()
         var successfulDates: [Date] = []
-        for fetchResult in result.fetchResults {
+
+        for fetchResult in fetchResults {
+            guard trackedProviderIDs.contains(fetchResult.provider) else {
+                continue
+            }
+
             var state =
                 states[fetchResult.provider] ??
                 ProviderState(provider: fetchResult.provider)
@@ -146,113 +309,26 @@ final class UsageStore {
             }
             states[fetchResult.provider] = state
         }
+
         if let latest = successfulDates.max() {
             lastSuccessfulRefreshAt = latest
         }
     }
 
-    func menuBarReadings(
-        for selection: MenuBarSelection,
-        window windowSelection: MenuBarWindow = .session,
-        displayMode: UsageDisplayMode = .used
-    ) -> [MenuBarReading] {
-        guard selection == .all else {
-            return [
-                menuBarReading(
-                    for: selection,
-                    window: windowSelection,
-                    displayMode: displayMode
-                )
-            ]
-        }
-
-        return ProviderID.allCases.compactMap { provider in
-            guard states[provider]?.isVisibleInDashboard != false else {
-                return nil
-            }
-            let pinnedSelection: MenuBarSelection
-            switch provider {
-            case .claude:
-                pinnedSelection = .claude
-            case .codex:
-                pinnedSelection = .codex
-            }
-            return menuBarReading(
-                for: pinnedSelection,
-                window: windowSelection,
-                displayMode: displayMode
-            )
-        }
+    private func cancelRefresh() {
+        refreshGeneration += 1
+        refreshTask?.cancel()
+        refreshTask = nil
     }
 
-    func menuBarReading(
-        for selection: MenuBarSelection,
-        window windowSelection: MenuBarWindow = .session,
-        displayMode: UsageDisplayMode = .used
-    ) -> MenuBarReading {
-        switch selection {
-        case .automatic:
-            let candidates = ProviderID.allCases.compactMap { provider -> (ProviderID, Double, Bool)? in
-                guard let state = states[provider],
-                      let value = state.snapshot?
-                        .primaryWindow(for: windowSelection)?
-                        .usedPercent else {
-                    return nil
-                }
-                return (provider, value, state.isStale)
-            }
-            guard let highest = candidates.max(by: { $0.1 < $1.1 }) else {
-                return MenuBarReading(
-                    provider: nil,
-                    percent: nil,
-                    displayMode: displayMode,
-                    isStale: false,
-                    showsPlaceholder: false
-                )
-            }
-            return MenuBarReading(
-                provider: highest.0,
-                percent: displayMode.displayedPercent(from: highest.1),
-                displayMode: displayMode,
-                isStale: highest.2,
-                showsPlaceholder: false
-            )
-
-        case .all:
-            return menuBarReadings(
-                for: .all,
-                window: windowSelection,
-                displayMode: displayMode
-            ).first ?? MenuBarReading(
-                provider: nil,
-                percent: nil,
-                displayMode: displayMode,
-                isStale: false,
-                showsPlaceholder: false
-            )
-
-        case .claude, .codex:
-            let provider: ProviderID = selection == .claude ? .claude : .codex
-            let state = states[provider]
-            let window = state?.snapshot?
-                .primaryWindowWithFallback(for: windowSelection)
-            return MenuBarReading(
-                provider: provider,
-                percent: window.map {
-                    displayMode.displayedPercent(from: $0.usedPercent)
-                },
-                displayMode: displayMode,
-                isStale: state?.isStale == true,
-                showsPlaceholder: window == nil
-            )
-        }
-    }
-
-    private func makeCadenceTask(refreshImmediately: Bool) -> Task<Void, Never> {
+    private func makeCadenceTask(
+        refreshImmediately: Bool,
+        initialProviderIDs: Set<ProviderID>? = nil
+    ) -> Task<Void, Never> {
         let duration = refreshInterval.duration
         return Task { [weak self, duration] in
             if refreshImmediately {
-                await self?.refresh()
+                await self?.refresh(providerIDs: initialProviderIDs)
             }
             while !Task.isCancelled {
                 do {
@@ -270,9 +346,4 @@ final class UsageStore {
 private struct FetchResult: Sendable {
     let provider: ProviderID
     let result: Result<ProviderSnapshot, ProviderFailure>
-}
-
-private struct RefreshResult: Sendable {
-    let fetchResults: [FetchResult]
-    let installedProviders: Set<ProviderID>?
 }

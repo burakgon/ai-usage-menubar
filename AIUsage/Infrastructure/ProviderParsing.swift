@@ -38,6 +38,10 @@ enum ProviderParsing {
         return nil
     }
 
+    static func centsToDollars(_ cents: Double) -> Double {
+        cents.rounded() / 100
+    }
+
     static func decodeWithHexFallback<T: Decodable>(_ text: String, as type: T.Type) -> T? {
         if let data = text.data(using: .utf8),
            let decoded = try? JSONDecoder().decode(type, from: data) {

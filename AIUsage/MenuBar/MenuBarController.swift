@@ -23,36 +23,99 @@ struct PanelToggleGate {
 @MainActor
 enum MenuBarStatusImageRenderer {
     private static let iconSize: CGFloat = 15
-    private static let iconTextSpacing: CGFloat = 4
-    private static let itemSpacing: CGFloat = 8
+    private static let iconTextSpacing: CGFloat = 3
+    private static let labelValueSpacing: CGFloat = 1
+    private static let separatorSpacing: CGFloat = 3
+    private static let staleSpacing: CGFloat = 1
+    private static let suffixSpacing: CGFloat = 1
+    private static let microLabelRaise: CGFloat = 2
+    private static let providerSpacing: CGFloat = 9
+
+    private struct TextRun {
+        let text: String
+        let size: NSSize
+
+        var width: CGFloat { ceil(size.width) }
+    }
+
+    private struct MetricRun {
+        let label: TextRun?
+        let value: TextRun
+        let staleIndicator: TextRun?
+        let width: CGFloat
+    }
 
     static func image(
-        for readings: [MenuBarReading],
+        for groups: [MenuBarProviderReadings],
         font: NSFont
     ) -> NSImage {
-        let entries = readings.map { reading in
-            (
-                reading: reading,
-                presentation: MenuBarPresentation(reading: reading)
+        let microFont = NSFont.systemFont(
+            ofSize: max(8, floor(font.pointSize * 0.62)),
+            weight: .semibold
+        )
+        let separator = textRun("·", font: microFont)
+        let entries = groups.map { group in
+            let presentation = MenuBarProviderPresentation(group: group)
+            let metrics = presentation.metrics.map { metric in
+                let label = metric.label.map {
+                    textRun($0, font: microFont)
+                }
+                let value = textRun(metric.valueText, font: font)
+                let staleIndicator = metric.showsStaleIndicator
+                    ? textRun("⚠︎", font: microFont)
+                    : nil
+                return MetricRun(
+                    label: label,
+                    value: value,
+                    staleIndicator: staleIndicator,
+                    width:
+                        (label?.width ?? 0) +
+                        (label == nil ? 0 : labelValueSpacing) +
+                        value.width +
+                        (staleIndicator == nil ? 0 : staleSpacing) +
+                        (staleIndicator?.width ?? 0)
+                )
+            }
+            let separatorsWidth =
+                (separator.width + separatorSpacing * 2) *
+                CGFloat(max(metrics.count - 1, 0))
+            let suffix = presentation.sharedSuffix.map {
+                textRun($0, font: microFont)
+            }
+            let valuesWidth =
+                metrics.map(\.width).reduce(0, +) +
+                separatorsWidth +
+                (suffix == nil ? 0 : suffixSpacing) +
+                (suffix?.width ?? 0)
+            let width = iconSize + (
+                metrics.isEmpty ? 0 : iconTextSpacing + ceil(valuesWidth)
+            )
+            return (
+                provider: group.provider,
+                metrics: metrics,
+                suffix: suffix,
+                width: width
             )
         }
-        let textAttributes: [NSAttributedString.Key: Any] = [
+        let valueAttributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.black
         ]
-        let metrics = entries.map { entry in
-            let text = titleText(for: entry.presentation)
-            let textSize = (text as NSString).size(withAttributes: textAttributes)
-            let width = iconSize + (
-                text.isEmpty ? 0 : iconTextSpacing + ceil(textSize.width)
-            )
-            return (text: text, textSize: textSize, width: width)
-        }
-        let width = metrics.map(\.width).reduce(0, +) +
-            itemSpacing * CGFloat(max(entries.count - 1, 0))
+        let microAttributes: [NSAttributedString.Key: Any] = [
+            .font: microFont,
+            .foregroundColor: NSColor.black
+        ]
+        let width = entries.map(\.width).reduce(0, +) +
+            providerSpacing * CGFloat(max(entries.count - 1, 0))
         let height = max(
             iconSize,
-            ceil(font.ascender - font.descender + font.leading)
+            ceil(font.ascender - font.descender + font.leading),
+            ceil(
+                microFont.ascender -
+                    microFont.descender +
+                    microFont.leading +
+                    microLabelRaise
+            )
         )
 
         let image = NSImage(
@@ -62,8 +125,7 @@ enum MenuBarStatusImageRenderer {
             var x = destination.minX
 
             for (index, entry) in entries.enumerated() {
-                let metric = metrics[index]
-                let icon = icon(for: entry.reading.provider)
+                let icon = icon(for: entry.provider)
                 icon.draw(
                     in: NSRect(
                         x: x,
@@ -77,20 +139,76 @@ enum MenuBarStatusImageRenderer {
                 )
                 x += iconSize
 
-                if !metric.text.isEmpty {
+                if !entry.metrics.isEmpty {
                     x += iconTextSpacing
-                    (metric.text as NSString).draw(
+                }
+                for (metricIndex, metric) in entry.metrics.enumerated() {
+                    if metricIndex > 0 {
+                        x += separatorSpacing
+                        (separator.text as NSString).draw(
+                            at: NSPoint(
+                                x: x,
+                                y: destination.midY -
+                                    separator.size.height / 2
+                            ),
+                            withAttributes: microAttributes
+                        )
+                        x += separator.width + separatorSpacing
+                    }
+
+                    if let label = metric.label {
+                        (label.text as NSString).draw(
+                            at: NSPoint(
+                                x: x,
+                                y: destination.midY -
+                                    label.size.height / 2 +
+                                    microLabelRaise
+                            ),
+                            withAttributes: microAttributes
+                        )
+                        x += label.width + labelValueSpacing
+                    }
+
+                    (metric.value.text as NSString).draw(
                         at: NSPoint(
                             x: x,
-                            y: destination.midY - metric.textSize.height / 2
+                            y: destination.midY -
+                                metric.value.size.height / 2
                         ),
-                        withAttributes: textAttributes
+                        withAttributes: valueAttributes
                     )
-                    x += ceil(metric.textSize.width)
+                    x += metric.value.width
+
+                    if metricIndex == entry.metrics.count - 1,
+                       let suffix = entry.suffix {
+                        x += suffixSpacing
+                        (suffix.text as NSString).draw(
+                            at: NSPoint(
+                                x: x,
+                                y: destination.midY -
+                                    suffix.size.height / 2
+                            ),
+                            withAttributes: microAttributes
+                        )
+                        x += suffix.width
+                    }
+
+                    if let staleIndicator = metric.staleIndicator {
+                        x += staleSpacing
+                        (staleIndicator.text as NSString).draw(
+                            at: NSPoint(
+                                x: x,
+                                y: destination.midY -
+                                    staleIndicator.size.height / 2
+                            ),
+                            withAttributes: microAttributes
+                        )
+                        x += staleIndicator.width
+                    }
                 }
 
                 if index < entries.count - 1 {
-                    x += itemSpacing
+                    x += providerSpacing
                 }
             }
 
@@ -100,37 +218,36 @@ enum MenuBarStatusImageRenderer {
         return image
     }
 
-    private static func titleText(
-        for presentation: MenuBarPresentation
-    ) -> String {
-        var title = presentation.valueText ?? ""
-        if presentation.showsStaleIndicator {
-            title = title.isEmpty ? "⚠︎" : "\(title) ⚠︎"
-        }
-        return title
+    private static func textRun(_ text: String, font: NSFont) -> TextRun {
+        TextRun(
+            text: text,
+            size: (text as NSString).size(withAttributes: [
+                .font: font
+            ])
+        )
     }
 
-    private static func icon(for provider: ProviderID?) -> NSImage {
-        if let provider {
-            return ProviderIcon.templateImage(for: provider, size: iconSize)
-        }
+    private static func icon(for provider: ProviderID) -> NSImage {
+        ProviderIcon.templateImage(for: provider, size: iconSize)
+    }
+}
 
-        guard let source = NSImage(
-            systemSymbolName: "gauge.with.dots.needle.50percent",
-            accessibilityDescription: nil
-        ), let image = source.copy() as? NSImage else {
-            return NSImage(size: NSSize(width: iconSize, height: iconSize))
+enum MenuBarPanelRoute: Equatable {
+    case dashboard
+    case settings
+
+    var width: CGFloat {
+        switch self {
+        case .dashboard:
+            392
+        case .settings:
+            560
         }
-        image.size = NSSize(width: iconSize, height: iconSize)
-        image.isTemplate = true
-        return image
     }
 }
 
 @MainActor
 final class MenuBarController: NSObject, NSPopoverDelegate {
-    private static let panelWidth: CGFloat = 392
-
     private let store: UsageStore
     private let preferences: AppPreferences
     private let launchAtLogin: LaunchAtLoginController
@@ -139,6 +256,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var panelRoute: MenuBarPanelRoute = .dashboard
     private var isStarted = false
     private var toggleGate = PanelToggleGate()
 
@@ -198,47 +316,92 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         if popover?.isShown == true {
             popover?.performClose(sender)
         } else {
-            showPanel()
+            showPanel(route: .dashboard)
         }
     }
 
-    private func showPanel() {
+    func showSettings() {
+        guard isStarted else { return }
+        preferences.markInitialSetupCompleted()
+        showPanel(route: .settings)
+    }
+
+    private func showDashboard() {
+        showPanel(route: .dashboard)
+    }
+
+    private func showPanel(route: MenuBarPanelRoute) {
         guard let button = statusItem?.button else { return }
 
-        let rootView = DashboardRootView(
-            store: store,
-            launchAtLogin: launchAtLogin,
-            preferences: preferences,
-            updateController: updateController
-        )
-        let hostingController = NSHostingController(rootView: rootView)
-        hostingController.sizingOptions = [.preferredContentSize]
-
-        let measuredSize = hostingController.sizeThatFits(
-            in: NSSize(
-                width: Self.panelWidth,
-                height: .greatestFiniteMagnitude
-            )
-        )
-        let contentSize = NSSize(
-            width: Self.panelWidth,
-            height: ceil(measuredSize.height)
-        )
-        hostingController.preferredContentSize = contentSize
+        if let popover, popover.isShown {
+            guard panelRoute != route else { return }
+            installContent(for: route, in: popover)
+            return
+        }
 
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        popover.contentSize = contentSize
-        popover.contentViewController = hostingController
         self.popover = popover
 
+        installContent(for: route, in: popover)
         popover.show(
             relativeTo: button.bounds,
             of: button,
             preferredEdge: .minY
         )
+    }
+
+    private func installContent(
+        for route: MenuBarPanelRoute,
+        in popover: NSPopover
+    ) {
+        let rootView: AnyView
+        switch route {
+        case .dashboard:
+            rootView = AnyView(
+                DashboardRootView(
+                    store: store,
+                    launchAtLogin: launchAtLogin,
+                    preferences: preferences,
+                    updateController: updateController,
+                    openSettings: { [weak self] in
+                        self?.showSettings()
+                    }
+                )
+            )
+        case .settings:
+            rootView = AnyView(
+                SettingsRootView(
+                    store: store,
+                    preferences: preferences,
+                    launchAtLogin: launchAtLogin,
+                    updateController: updateController,
+                    showDashboard: { [weak self] in
+                        self?.showDashboard()
+                    }
+                )
+            )
+        }
+
+        let hostingController = NSHostingController(rootView: rootView)
+        hostingController.sizingOptions = [.preferredContentSize]
+
+        let measuredSize = hostingController.sizeThatFits(
+            in: NSSize(
+                width: route.width,
+                height: .greatestFiniteMagnitude
+            )
+        )
+        let contentSize = NSSize(
+            width: route.width,
+            height: ceil(measuredSize.height)
+        )
+        hostingController.preferredContentSize = contentSize
+        popover.contentViewController = hostingController
+        popover.contentSize = contentSize
+        panelRoute = route
     }
 
     func popoverDidClose(_ notification: Notification) {
@@ -257,18 +420,20 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         popover?.delegate = nil
         popover?.contentViewController = nil
         popover = nil
+        panelRoute = .dashboard
     }
 
     private func trackMenuBarState() {
         guard isStarted else { return }
 
+        store.setTrackedProviders(preferences.trackedProviderIDs)
         let state = withObservationTracking {
             (
-                readings: store.menuBarReadings(
-                    for: preferences.menuBarSelection,
-                    window: preferences.menuBarWindow,
+                groups: store.menuBarProviderReadings(
+                    for: preferences.menuBarProviderConfigurations,
                     displayMode: preferences.usageDisplayMode
                 ),
+                trackedProviders: preferences.trackedProviderIDs,
                 refreshInterval: preferences.refreshInterval
             )
         } onChange: { [weak self] in
@@ -277,29 +442,21 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             }
         }
 
+        store.setTrackedProviders(state.trackedProviders)
         store.setRefreshInterval(state.refreshInterval)
-        updateStatusItem(with: state.readings)
+        updateStatusItem(with: state.groups)
     }
 
-    private func updateStatusItem(with readings: [MenuBarReading]) {
+    private func updateStatusItem(with groups: [MenuBarProviderReadings]) {
         guard let button = statusItem?.button else { return }
 
         let collectionPresentation = MenuBarReadingsPresentation(
-            readings: readings
+            groups: groups
         )
         button.toolTip = collectionPresentation.accessibilityLabel
         button.setAccessibilityLabel(collectionPresentation.accessibilityLabel)
 
-        guard readings.count != 1 else {
-            updateStatusItem(
-                button,
-                with: readings[0],
-                presentation: collectionPresentation.items[0]
-            )
-            return
-        }
-
-        guard !readings.isEmpty else {
+        guard !groups.isEmpty else {
             button.attributedTitle = NSAttributedString()
             button.image = statusImage(for: nil)
             button.title = ""
@@ -310,24 +467,9 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         button.image = nil
         button.title = ""
         button.image = MenuBarStatusImageRenderer.image(
-            for: readings,
+            for: groups,
             font: button.font ?? NSFont.menuBarFont(ofSize: 0)
         )
-    }
-
-    private func updateStatusItem(
-        _ button: NSStatusBarButton,
-        with reading: MenuBarReading,
-        presentation: MenuBarPresentation
-    ) {
-        button.attributedTitle = NSAttributedString()
-        var title = presentation.valueText ?? ""
-        if presentation.showsStaleIndicator {
-            title = title.isEmpty ? "⚠︎" : "\(title) ⚠︎"
-        }
-
-        button.image = statusImage(for: reading.provider)
-        button.title = title
     }
 
     private func statusImage(for provider: ProviderID?) -> NSImage {
@@ -352,18 +494,36 @@ private struct DashboardRootView: View {
     let launchAtLogin: LaunchAtLoginController
     @Bindable var preferences: AppPreferences
     @Bindable var updateController: UpdateController
+    let openSettings: @MainActor () -> Void
 
     var body: some View {
         DashboardView(
             store: store,
             launchAtLogin: launchAtLogin,
-            menuBarSelection: $preferences.menuBarSelection,
-            menuBarWindow: $preferences.menuBarWindow,
             usageDisplayMode: $preferences.usageDisplayMode,
             refreshInterval: $preferences.refreshInterval,
             availableUpdateVersion: updateController.availableVersion,
             isCheckingForUpdates: updateController.isChecking,
-            checkForUpdates: updateController.checkForUpdates
+            checkForUpdates: updateController.checkForUpdates,
+            openSettings: openSettings
+        )
+    }
+}
+
+private struct SettingsRootView: View {
+    let store: UsageStore
+    @Bindable var preferences: AppPreferences
+    @Bindable var launchAtLogin: LaunchAtLoginController
+    @Bindable var updateController: UpdateController
+    let showDashboard: @MainActor () -> Void
+
+    var body: some View {
+        SettingsView(
+            store: store,
+            preferences: preferences,
+            launchAtLogin: launchAtLogin,
+            updateController: updateController,
+            showDashboard: showDashboard
         )
     }
 }

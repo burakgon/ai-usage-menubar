@@ -19,4 +19,14 @@ final class MenuBarControllerTests: XCTestCase {
 
         XCTAssertFalse(gate.consumeSuppression())
     }
+
+    func testSettingsRouteExpandsTheSameCompactMenuBarPanel() {
+        XCTAssertEqual(MenuBarPanelRoute.dashboard.width, 392)
+        XCTAssertEqual(MenuBarPanelRoute.settings.width, 560)
+        XCTAssertGreaterThan(
+            MenuBarPanelRoute.settings.width,
+            MenuBarPanelRoute.dashboard.width
+        )
+        XCTAssertLessThan(MenuBarPanelRoute.settings.width, 600)
+    }
 }
