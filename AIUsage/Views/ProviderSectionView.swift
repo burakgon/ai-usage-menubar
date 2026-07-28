@@ -16,13 +16,19 @@ struct ProviderSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             providerHeader
-            if let snapshot = state.snapshot, !snapshot.windows.isEmpty {
-                QuotaGrid(
-                    windows: snapshot.windows,
-                    displayMode: displayMode
-                )
-                .padding(.horizontal, 10)
-                .padding(.bottom, 6)
+            if let snapshot = state.snapshot,
+               !snapshot.windows.isEmpty || snapshot.creditUsage != nil {
+                if !snapshot.windows.isEmpty {
+                    QuotaGrid(
+                        windows: snapshot.windows,
+                        displayMode: displayMode
+                    )
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 6)
+                }
+                if let creditUsage = snapshot.creditUsage {
+                    CreditUsageRow(usage: creditUsage)
+                }
             } else if state.isRefreshing {
                 ProviderStatusRow(
                     message: "Checking local login…",
@@ -77,6 +83,69 @@ struct ProviderSectionView: View {
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 6)
+    }
+}
+
+private struct CreditUsageRow: View {
+    let usage: CreditUsage
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "creditcard")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.tertiary)
+                .frame(width: 14, height: 14)
+
+            Text("Credits")
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 8)
+
+            Text(valueText)
+                .monospacedDigit()
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .font(.caption)
+        .frame(maxWidth: .infinity, minHeight: 24)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Credits")
+        .accessibilityValue(valueText)
+    }
+
+    private var valueText: String {
+        if usage.isUnlimited {
+            return "Unlimited"
+        }
+        if let balance = usage.balanceAmount {
+            return "\(currency(balance)) left"
+        }
+        if let remaining = usage.remainingAmount {
+            return "\(currency(remaining)) left"
+        }
+        if let used = usage.usedAmount {
+            return "\(currency(used)) used"
+        }
+        if let limit = usage.limitAmount {
+            return "\(currency(limit)) limit"
+        }
+        if let percent = usage.usedPercent {
+            let formatted = percent.formatted(
+                .number.precision(.fractionLength(0...1))
+            )
+            return "\(formatted)% used"
+        }
+        return "Available"
+    }
+
+    private func currency(_ amount: Double) -> String {
+        amount.formatted(
+            .currency(code: usage.currencyCode)
+                .precision(.fractionLength(2))
+        )
     }
 }
 

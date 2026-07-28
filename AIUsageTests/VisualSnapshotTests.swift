@@ -151,6 +151,56 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 130)
     }
 
+    func testCreditUsageAddsOneCompactProviderRow() {
+        let windows = [
+            QuotaWindow(
+                kind: .session,
+                usedPercent: 28,
+                resetsAt: Date().addingTimeInterval(3_600)
+            ),
+            QuotaWindow(
+                kind: .weekly,
+                usedPercent: 52,
+                resetsAt: Date().addingTimeInterval(86_400)
+            )
+        ]
+        let withoutCredits = ProviderState(
+            provider: .claude,
+            snapshot: ProviderSnapshot(
+                provider: .claude,
+                planName: "Pro",
+                windows: windows,
+                fetchedAt: Date()
+            )
+        )
+        let withCredits = ProviderState(
+            provider: .claude,
+            snapshot: ProviderSnapshot(
+                provider: .claude,
+                planName: "Pro",
+                windows: windows,
+                creditUsage: CreditUsage(
+                    usedAmount: 99.99,
+                    limitAmount: 200,
+                    usedPercent: 49.995
+                ),
+                fetchedAt: Date()
+            )
+        )
+
+        let baseSize = measuredSize(
+            of: ProviderSectionView(state: withoutCredits),
+            width: panelWidth - 20
+        )
+        let creditSize = measuredSize(
+            of: ProviderSectionView(state: withCredits),
+            width: panelWidth - 20
+        )
+
+        XCTAssertGreaterThan(creditSize.height, baseSize.height + 20)
+        XCTAssertLessThan(creditSize.height, baseSize.height + 40)
+    }
+
     func testProviderLoadingAndTransientFailureStatesStayInsideOneCompactSurface() {
         var loadingState = ProviderState(provider: .claude)
         loadingState.isRefreshing = true

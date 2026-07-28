@@ -50,6 +50,7 @@ enum CodexUsageMapper {
             provider: .codex,
             planName: planName(body["plan_type"]),
             windows: windows,
+            creditUsage: creditUsage(body["credits"]),
             fetchedAt: now
         )
     }
@@ -173,5 +174,28 @@ enum CodexUsageMapper {
             .compactMap(ProviderParsing.string)
             .map { $0.lowercased() }
             .contains { $0.contains("spark") }
+    }
+
+    private static func creditUsage(_ value: Any?) -> CreditUsage? {
+        guard let object = ProviderParsing.object(value) else {
+            return nil
+        }
+
+        let balanceAmount = ProviderParsing.double(object["balance"])
+            .map { max($0, 0) }
+        let isUnlimited = object["unlimited"] as? Bool == true
+        let hasCredits = (object["has_credits"] as? Bool) ??
+            (object["hasCredits"] as? Bool)
+        guard balanceAmount != nil || isUnlimited || hasCredits == true else {
+            return nil
+        }
+
+        let currencyCode = ProviderParsing.string(object["currency"])?
+            .uppercased() ?? "USD"
+        return CreditUsage(
+            balanceAmount: balanceAmount,
+            currencyCode: currencyCode,
+            isUnlimited: isUnlimited
+        )
     }
 }
