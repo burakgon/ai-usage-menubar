@@ -6,6 +6,36 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.1.8</title>
+            <pubDate>Tue, 28 Jul 2026 21:12:47 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.8
+
+This release makes multi-provider usage clearer while keeping the menu bar
+compact.
+
+- Show Claude Code and Codex together, with a separate menu bar toggle for each
+  installed provider.
+- Choose the visible metrics directly under each provider in the native
+  settings popover.
+- Keep a single selected metric minimal, and add compact labels only when
+  multiple metrics are shown.
+- Show Claude Code extra usage and Codex account credits when the provider
+  returns them.
+- Default fresh installs and legacy upgrades to Weekly once, then preserve
+  every later user choice across updates.
+- Hide tools that are not installed while keeping installed, signed-out
+  providers visible with an accurate status.
+
+Thanks to [@cneren](https://github.com/cneren) for the initial multi-provider
+and credit usage contributions.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.8/AI-Usage.dmg" length="3830824" type="application/octet-stream" sparkle:edSignature="98geWazBZMtBN+xfj2yH/K2yJPYY4CGSspwSl4FPcIVOUolDXsKCV6gpKgvnG0jTZflmfY+qeiAMFFVXOdZABg=="/>
+        </item>
+        <item>
             <title>0.1.7</title>
             <pubDate>Tue, 28 Jul 2026 02:10:52 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -103,31 +133,9 @@ resolved executable paths during usage refreshes.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.4/AI-Usage.dmg" length="3439404" type="application/octet-stream" sparkle:edSignature="DhGKmVc+L6uyXaxn9FINucEMVW6uLSRgc2CymwhKRxxIJ5Cgt9y/ilJDwBJjyfxe9rxca3fJuttfFR5BS57yAA=="/>
         </item>
-        <item>
-            <title>0.1.3</title>
-            <pubDate>Mon, 27 Jul 2026 11:58:01 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.1.3</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.3
-
-This hotfix makes the new Launch at Login default work on a completely fresh
-installation.
-
-macOS can initially report the main application service as not found before it
-has ever been registered. AI Usage now treats that clean-install state as
-registerable, enables Launch at Login, and still remembers when a user later
-turns it off.
-
-All usage display, menu bar period, refresh interval, and direct update actions
-introduced in 0.1.2 are unchanged.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.3/AI-Usage.dmg" length="3422584" type="application/octet-stream" sparkle:edSignature="G8hOoxOURkkoOOJXaIUq1bsqPK5MdmnHXKCxXifjPwzTMht/ca4aZrI+0DCFoW1ZMeKU6dhudnHKlS/TmScFAQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: jxqYYpUEtfJsUv9TRnzi4qzY9nQ8rUmYnLP62zPCDZduMFKAWFYZ6vwYYcf7ycihE/bxAKD8H7OyxaGYmgAFBA==
-length: 7238
+edSignature: 9Ut8i47ela4nalBuKkERk/Y4ngKQe/Cy6cn52NgsKfz08uu8oTQkoFs3XjWz7SroHBATcDUoUHF6I43+9IS0AA==
+length: 7605
 -->
