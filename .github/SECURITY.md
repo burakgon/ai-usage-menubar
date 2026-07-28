@@ -16,3 +16,5 @@ Include the affected version, steps to reproduce, potential impact, and any
 suggested mitigation. You should receive an acknowledgement within 72 hours.
 We will coordinate a fix and disclosure timeline with you when the report is
 confirmed.
+
+Thank you for helping keep AI Usage and its users safe.
