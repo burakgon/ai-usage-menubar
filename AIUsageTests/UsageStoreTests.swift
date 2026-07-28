@@ -110,6 +110,67 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
+    func testAllSelectionReturnsEveryAvailableProviderInStableOrder() async {
+        let claude = SequencedProvider(
+            id: .claude,
+            results: [.success(snapshot(provider: .claude, percent: 20))]
+        )
+        let codex = SequencedProvider(
+            id: .codex,
+            results: [.success(snapshot(provider: .codex, percent: 81))]
+        )
+        let store = UsageStore(
+            providers: [claude, codex],
+            availabilityChecker: FixedProviderAvailabilityChecker()
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.menuBarReadings(for: .all),
+            [
+                MenuBarReading(
+                    provider: .claude,
+                    percent: 20,
+                    displayMode: .used,
+                    isStale: false,
+                    showsPlaceholder: false
+                ),
+                MenuBarReading(
+                    provider: .codex,
+                    percent: 81,
+                    displayMode: .used,
+                    isStale: false,
+                    showsPlaceholder: false
+                )
+            ]
+        )
+    }
+
+    func testAllSelectionOmitsUnavailableProviders() async {
+        let claude = SequencedProvider(
+            id: .claude,
+            results: [.success(snapshot(provider: .claude, percent: 20))]
+        )
+        let codex = SequencedProvider(
+            id: .codex,
+            results: [.success(snapshot(provider: .codex, percent: 81))]
+        )
+        let store = UsageStore(
+            providers: [claude, codex],
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: [.claude]
+            )
+        )
+
+        await store.refresh()
+
+        XCTAssertEqual(
+            store.menuBarReadings(for: .all).map(\.provider),
+            [.claude]
+        )
+    }
+
     func testPinnedCodexFallsBackToAvailableWeeklyPeriod() async {
         let weeklyOnly = ProviderSnapshot(
             provider: .codex,

@@ -21,6 +21,113 @@ struct PanelToggleGate {
 }
 
 @MainActor
+enum MenuBarStatusImageRenderer {
+    private static let iconSize: CGFloat = 15
+    private static let iconTextSpacing: CGFloat = 4
+    private static let itemSpacing: CGFloat = 8
+
+    static func image(
+        for readings: [MenuBarReading],
+        font: NSFont
+    ) -> NSImage {
+        let entries = readings.map { reading in
+            (
+                reading: reading,
+                presentation: MenuBarPresentation(reading: reading)
+            )
+        }
+        let textAttributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.black
+        ]
+        let metrics = entries.map { entry in
+            let text = titleText(for: entry.presentation)
+            let textSize = (text as NSString).size(withAttributes: textAttributes)
+            let width = iconSize + (
+                text.isEmpty ? 0 : iconTextSpacing + ceil(textSize.width)
+            )
+            return (text: text, textSize: textSize, width: width)
+        }
+        let width = metrics.map(\.width).reduce(0, +) +
+            itemSpacing * CGFloat(max(entries.count - 1, 0))
+        let height = max(
+            iconSize,
+            ceil(font.ascender - font.descender + font.leading)
+        )
+
+        let image = NSImage(
+            size: NSSize(width: ceil(width), height: ceil(height)),
+            flipped: false
+        ) { destination in
+            var x = destination.minX
+
+            for (index, entry) in entries.enumerated() {
+                let metric = metrics[index]
+                let icon = icon(for: entry.reading.provider)
+                icon.draw(
+                    in: NSRect(
+                        x: x,
+                        y: destination.midY - iconSize / 2,
+                        width: iconSize,
+                        height: iconSize
+                    ),
+                    from: .zero,
+                    operation: .sourceOver,
+                    fraction: 1
+                )
+                x += iconSize
+
+                if !metric.text.isEmpty {
+                    x += iconTextSpacing
+                    (metric.text as NSString).draw(
+                        at: NSPoint(
+                            x: x,
+                            y: destination.midY - metric.textSize.height / 2
+                        ),
+                        withAttributes: textAttributes
+                    )
+                    x += ceil(metric.textSize.width)
+                }
+
+                if index < entries.count - 1 {
+                    x += itemSpacing
+                }
+            }
+
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }
+
+    private static func titleText(
+        for presentation: MenuBarPresentation
+    ) -> String {
+        var title = presentation.valueText ?? ""
+        if presentation.showsStaleIndicator {
+            title = title.isEmpty ? "⚠︎" : "\(title) ⚠︎"
+        }
+        return title
+    }
+
+    private static func icon(for provider: ProviderID?) -> NSImage {
+        if let provider {
+            return ProviderIcon.templateImage(for: provider, size: iconSize)
+        }
+
+        guard let source = NSImage(
+            systemSymbolName: "gauge.with.dots.needle.50percent",
+            accessibilityDescription: nil
+        ), let image = source.copy() as? NSImage else {
+            return NSImage(size: NSSize(width: iconSize, height: iconSize))
+        }
+        image.size = NSSize(width: iconSize, height: iconSize)
+        image.isTemplate = true
+        return image
+    }
+}
+
+@MainActor
 final class MenuBarController: NSObject, NSPopoverDelegate {
     private static let panelWidth: CGFloat = 392
 
@@ -157,7 +264,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         let state = withObservationTracking {
             (
-                reading: store.menuBarReading(
+                readings: store.menuBarReadings(
                     for: preferences.menuBarSelection,
                     window: preferences.menuBarWindow,
                     displayMode: preferences.usageDisplayMode
@@ -171,13 +278,49 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
 
         store.setRefreshInterval(state.refreshInterval)
-        updateStatusItem(with: state.reading)
+        updateStatusItem(with: state.readings)
     }
 
-    private func updateStatusItem(with reading: MenuBarReading) {
+    private func updateStatusItem(with readings: [MenuBarReading]) {
         guard let button = statusItem?.button else { return }
 
-        let presentation = MenuBarPresentation(reading: reading)
+        let collectionPresentation = MenuBarReadingsPresentation(
+            readings: readings
+        )
+        button.toolTip = collectionPresentation.accessibilityLabel
+        button.setAccessibilityLabel(collectionPresentation.accessibilityLabel)
+
+        guard readings.count != 1 else {
+            updateStatusItem(
+                button,
+                with: readings[0],
+                presentation: collectionPresentation.items[0]
+            )
+            return
+        }
+
+        guard !readings.isEmpty else {
+            button.attributedTitle = NSAttributedString()
+            button.image = statusImage(for: nil)
+            button.title = ""
+            return
+        }
+
+        button.attributedTitle = NSAttributedString()
+        button.image = nil
+        button.title = ""
+        button.image = MenuBarStatusImageRenderer.image(
+            for: readings,
+            font: button.font ?? NSFont.menuBarFont(ofSize: 0)
+        )
+    }
+
+    private func updateStatusItem(
+        _ button: NSStatusBarButton,
+        with reading: MenuBarReading,
+        presentation: MenuBarPresentation
+    ) {
+        button.attributedTitle = NSAttributedString()
         var title = presentation.valueText ?? ""
         if presentation.showsStaleIndicator {
             title = title.isEmpty ? "⚠︎" : "\(title) ⚠︎"
@@ -185,8 +328,6 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
 
         button.image = statusImage(for: reading.provider)
         button.title = title
-        button.toolTip = presentation.accessibilityLabel
-        button.setAccessibilityLabel(presentation.accessibilityLabel)
     }
 
     private func statusImage(for provider: ProviderID?) -> NSImage {

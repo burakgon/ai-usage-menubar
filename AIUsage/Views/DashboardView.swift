@@ -87,6 +87,8 @@ struct DashboardView: View {
                             } icon: {
                                 if let provider = option.provider {
                                     ProviderIcon(provider: provider, size: 13)
+                                } else if option == .all {
+                                    Image(systemName: "rectangle.3.group")
                                 } else {
                                     Image(systemName: "gauge.with.dots.needle.50percent")
                                 }
