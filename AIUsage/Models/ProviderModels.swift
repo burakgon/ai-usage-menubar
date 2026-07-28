@@ -50,11 +50,58 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
     var renderedFraction: Double { min(max(usedPercent / 100, 0), 1) }
 }
 
+struct CreditUsage: Equatable, Sendable {
+    let usedAmount: Double?
+    let limitAmount: Double?
+    let balanceAmount: Double?
+    let usedPercent: Double?
+    let currencyCode: String
+    let isUnlimited: Bool
+
+    init(
+        usedAmount: Double? = nil,
+        limitAmount: Double? = nil,
+        balanceAmount: Double? = nil,
+        usedPercent: Double? = nil,
+        currencyCode: String = "USD",
+        isUnlimited: Bool = false
+    ) {
+        self.usedAmount = usedAmount
+        self.limitAmount = limitAmount
+        self.balanceAmount = balanceAmount
+        self.usedPercent = usedPercent
+        self.currencyCode = currencyCode
+        self.isUnlimited = isUnlimited
+    }
+
+    var remainingAmount: Double? {
+        guard let usedAmount, let limitAmount else {
+            return nil
+        }
+        return max(limitAmount - usedAmount, 0)
+    }
+}
+
 struct ProviderSnapshot: Equatable, Sendable {
     let provider: ProviderID
     let planName: String?
     let windows: [QuotaWindow]
+    let creditUsage: CreditUsage?
     let fetchedAt: Date
+
+    init(
+        provider: ProviderID,
+        planName: String?,
+        windows: [QuotaWindow],
+        creditUsage: CreditUsage? = nil,
+        fetchedAt: Date
+    ) {
+        self.provider = provider
+        self.planName = planName
+        self.windows = windows
+        self.creditUsage = creditUsage
+        self.fetchedAt = fetchedAt
+    }
 
     var sessionWindow: QuotaWindow? {
         windows.first { $0.kind == .session }
