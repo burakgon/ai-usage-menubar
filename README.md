@@ -27,6 +27,16 @@ AI Usage shows the limits that matter and stays out of the way. No extra
 account, API key, local server, telemetry, usage history, or background log
 scanning.
 
+## Choose exactly what appears.
+
+<p align="center">
+  <img src="docs/images/ai-usage-settings-dark.png" width="760" alt="AI Usage native settings popover in dark mode, with separate tracking, menu bar visibility, and metric choices for Claude Code and Codex">
+</p>
+
+<p align="center">
+  <sub>Show either provider, then pick the metrics beneath it. Nothing more.</sub>
+</p>
+
 ## Other usage apps stay heavy. AI Usage stays light.
 
 <p align="center">
@@ -54,8 +64,9 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 
 - Claude Code session, weekly, Sonnet, and Fable limits
 - Codex session, weekly, Spark, and Spark weekly limits
+- Claude Code extra usage and Codex credits when available
 - Remaining or used percentages, switchable directly in the panel
-- A selectable provider and session/weekly value directly in the menu bar
+- Independent menu bar controls and metric choices for each provider
 - Configurable 1, 5, 15, 30, or 60-minute refresh and one-click manual refresh
 - Signed update checks at launch and daily, plus **Check for Updates…**
 - A direct **Update** button in the panel when a new version is available
@@ -107,11 +118,10 @@ The exact researched contracts are documented in
 
 ## Menu bar behavior
 
-The default **Auto** mode shows the provider with the highest used percentage
-for the selected period. You can independently choose Claude Code, Codex, or
-Auto; Session or Weekly; and whether numbers mean Used or Left.
-**Left** is the default number mode. The menu bar stays compact and shows only
-the selected percentage; its meaning remains visible in the panel.
+Claude Code and Codex can be shown or hidden independently. Under each provider,
+choose any metric it currently returns. A single metric shows only its value;
+multiple metrics use tiny labels to stay compact. **Weekly** is selected for
+both providers by default, and **Left** is the default number mode.
 
 Raw percentages are shown exactly as reported by the provider. Only progress
 bar drawing is clamped to `0...100`. Remaining usage is bounded to `0...100`
