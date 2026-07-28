@@ -32,14 +32,14 @@ final class AppPreferencesTests: XCTestCase {
 
     func testPreferencesPersistUsingExistingKeys() {
         let preferences = AppPreferences(defaults: defaults)
-        preferences.menuBarSelection = .codex
+        preferences.menuBarSelection = .all
         preferences.menuBarWindow = .weekly
         preferences.usageDisplayMode = .used
         preferences.refreshInterval = .thirtyMinutes
 
         let restored = AppPreferences(defaults: defaults)
 
-        XCTAssertEqual(restored.menuBarSelection, .codex)
+        XCTAssertEqual(restored.menuBarSelection, .all)
         XCTAssertEqual(restored.menuBarWindow, .weekly)
         XCTAssertEqual(restored.usageDisplayMode, .used)
         XCTAssertEqual(restored.refreshInterval, .thirtyMinutes)

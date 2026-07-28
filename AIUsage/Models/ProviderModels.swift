@@ -128,6 +128,7 @@ struct ProviderState: Equatable, Sendable {
 
 enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
     case automatic
+    case all
     case claude
     case codex
 
@@ -136,6 +137,7 @@ enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .automatic: "Auto — Highest usage"
+        case .all: "All providers"
         case .claude: "Claude Code"
         case .codex: "Codex"
         }
@@ -143,7 +145,7 @@ enum MenuBarSelection: String, CaseIterable, Identifiable, Sendable {
 
     var provider: ProviderID? {
         switch self {
-        case .automatic: nil
+        case .automatic, .all: nil
         case .claude: .claude
         case .codex: .codex
         }

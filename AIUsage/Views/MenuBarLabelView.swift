@@ -28,6 +28,18 @@ struct MenuBarPresentation: Equatable, Sendable {
     }
 }
 
+struct MenuBarReadingsPresentation: Equatable, Sendable {
+    let items: [MenuBarPresentation]
+    let accessibilityLabel: String
+
+    init(readings: [MenuBarReading]) {
+        items = readings.map(MenuBarPresentation.init(reading:))
+        accessibilityLabel = items.isEmpty
+            ? "AI usage"
+            : items.map(\.accessibilityLabel).joined(separator: ", ")
+    }
+}
+
 struct MenuBarLabelView: View {
     let reading: MenuBarReading
 

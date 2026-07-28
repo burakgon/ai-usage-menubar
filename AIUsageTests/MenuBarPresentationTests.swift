@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import AIUsage
 
@@ -43,5 +44,59 @@ final class MenuBarPresentationTests: XCTestCase {
 
         XCTAssertNil(presentation.valueText)
         XCTAssertEqual(presentation.accessibilityLabel, "AI usage")
+    }
+
+    func testMultipleReadingsKeepProviderValuesAndAccessibilityOrder() {
+        let presentation = MenuBarReadingsPresentation(readings: [
+            MenuBarReading(
+                provider: .claude,
+                percent: 62,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: false
+            ),
+            MenuBarReading(
+                provider: .codex,
+                percent: 28,
+                displayMode: .used,
+                isStale: true,
+                showsPlaceholder: false
+            )
+        ])
+
+        XCTAssertEqual(presentation.items.map(\.valueText), ["62%", "28%"])
+        XCTAssertEqual(
+            presentation.accessibilityLabel,
+            "Claude Code 62 percent used, Codex 28 percent used, stale"
+        )
+    }
+
+    @MainActor
+    func testMultipleReadingStatusImageUsesTemplateRendering() {
+        let readings = [
+            MenuBarReading(
+                provider: .claude,
+                percent: 62,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: false
+            ),
+            MenuBarReading(
+                provider: .codex,
+                percent: 28,
+                displayMode: .used,
+                isStale: false,
+                showsPlaceholder: false
+            )
+        ]
+
+        let image = MenuBarStatusImageRenderer.image(
+            for: readings,
+            font: NSFont.menuBarFont(ofSize: 0)
+        )
+
+        XCTAssertTrue(image.isTemplate)
+        XCTAssertGreaterThan(image.size.width, 50)
+        XCTAssertLessThan(image.size.width, 110)
     }
 }

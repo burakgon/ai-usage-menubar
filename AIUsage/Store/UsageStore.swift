@@ -151,6 +151,40 @@ final class UsageStore {
         }
     }
 
+    func menuBarReadings(
+        for selection: MenuBarSelection,
+        window windowSelection: MenuBarWindow = .session,
+        displayMode: UsageDisplayMode = .used
+    ) -> [MenuBarReading] {
+        guard selection == .all else {
+            return [
+                menuBarReading(
+                    for: selection,
+                    window: windowSelection,
+                    displayMode: displayMode
+                )
+            ]
+        }
+
+        return ProviderID.allCases.compactMap { provider in
+            guard states[provider]?.isVisibleInDashboard != false else {
+                return nil
+            }
+            let pinnedSelection: MenuBarSelection
+            switch provider {
+            case .claude:
+                pinnedSelection = .claude
+            case .codex:
+                pinnedSelection = .codex
+            }
+            return menuBarReading(
+                for: pinnedSelection,
+                window: windowSelection,
+                displayMode: displayMode
+            )
+        }
+    }
+
     func menuBarReading(
         for selection: MenuBarSelection,
         window windowSelection: MenuBarWindow = .session,
@@ -181,6 +215,19 @@ final class UsageStore {
                 percent: displayMode.displayedPercent(from: highest.1),
                 displayMode: displayMode,
                 isStale: highest.2,
+                showsPlaceholder: false
+            )
+
+        case .all:
+            return menuBarReadings(
+                for: .all,
+                window: windowSelection,
+                displayMode: displayMode
+            ).first ?? MenuBarReading(
+                provider: nil,
+                percent: nil,
+                displayMode: displayMode,
+                isStale: false,
                 showsPlaceholder: false
             )
 
