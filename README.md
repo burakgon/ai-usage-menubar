@@ -55,10 +55,8 @@ Open the DMG, drag **AI Usage** to Applications, and launch it. It appears in
 the menu bar rather than the Dock. macOS 26 or newer is required.
 
 > [!NOTE]
-> Current public builds are ad-hoc signed because a Developer ID certificate
-> is not available yet. If macOS blocks the first launch, right-click
-> **AI Usage** in Applications and choose **Open**. Future updates are still
-> protected by Sparkle's EdDSA signature.
+> Public builds are signed with a Developer ID certificate, notarized by Apple,
+> and protected by Sparkle's EdDSA signature for secure in-app updates.
 
 ## What you get
 
