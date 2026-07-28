@@ -68,17 +68,25 @@ final class VisualSnapshotTests: XCTestCase {
     func testMenuBarLabelKeepsUsageMeaningOutOfVisibleText() {
         for displayMode in UsageDisplayMode.allCases {
             let size = measuredSize(
-                of: MenuBarLabelView(reading: MenuBarReading(
-                    provider: .codex,
-                    percent: 62,
-                    displayMode: displayMode,
-                    isStale: false,
-                    showsPlaceholder: false
-                )),
+                of: MenuBarProviderLabelView(
+                    group: MenuBarProviderReadings(
+                        provider: .codex,
+                        selectedMetrics: [.weekly],
+                        readings: [
+                            MenuBarReading(
+                                provider: .codex,
+                                metric: .weekly,
+                                value: .percentage(62),
+                                displayMode: displayMode,
+                                isStale: false
+                            )
+                        ]
+                    )
+                ),
                 width: 200
             )
 
-            XCTAssertLessThan(size.width, 60)
+            XCTAssertLessThan(size.width, 75)
         }
     }
 
@@ -94,8 +102,6 @@ final class VisualSnapshotTests: XCTestCase {
             let view = DashboardView(
                 store: store,
                 launchAtLogin: LaunchAtLoginController(service: SnapshotLoginService()),
-                menuBarSelection: .constant(.automatic),
-                menuBarWindow: .constant(.session),
                 usageDisplayMode: .constant(.used),
                 refreshInterval: .constant(.fiveMinutes),
                 availableUpdateVersion: nil,
@@ -116,8 +122,6 @@ final class VisualSnapshotTests: XCTestCase {
         let view = DashboardView(
             store: store,
             launchAtLogin: LaunchAtLoginController(service: SnapshotLoginService()),
-            menuBarSelection: .constant(.codex),
-            menuBarWindow: .constant(.weekly),
             usageDisplayMode: .constant(.remaining),
             refreshInterval: .constant(.fifteenMinutes),
             availableUpdateVersion: "0.2.0",
@@ -130,6 +134,37 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertEqual(size.width, panelWidth, accuracy: 0.5)
         XCTAssertLessThan(size.height, 500)
         XCTAssertGreaterThan(size.height, 250)
+    }
+
+    func testSettingsFitsTheMenuBarPopoverInLightAndDark() async {
+        let store = await makePopulatedStore()
+        let suiteName = "VisualSnapshotTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.configureDefaultMenuBarProviders(
+            availableItemsByProvider: store.availableMenuBarItemsByProvider
+        )
+
+        for colorScheme in [ColorScheme.light, .dark] {
+            let view = SettingsView(
+                store: store,
+                preferences: preferences,
+                launchAtLogin: LaunchAtLoginController(
+                    service: SnapshotLoginService()
+                ),
+                updateController: UpdateController(startingUpdater: false)
+            )
+            .environment(\.colorScheme, colorScheme)
+
+            let width = MenuBarPanelRoute.settings.width
+            let size = measuredSize(of: view, width: width)
+            XCTAssertEqual(size.width, width, accuracy: 0.5)
+            XCTAssertLessThan(size.height, 500)
+            XCTAssertGreaterThan(size.height, 300)
+        }
+
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     func testProviderSurfaceKeepsOddQuotaCountCompact() {
@@ -151,54 +186,47 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 130)
     }
 
-    func testCreditUsageAddsOneCompactProviderRow() {
-        let windows = [
-            QuotaWindow(
-                kind: .session,
-                usedPercent: 28,
-                resetsAt: Date().addingTimeInterval(3_600)
+    func testBillingUsagePresentationKeepsProviderSemanticsDistinct() {
+        let locale = Locale(identifier: "en_US")
+        let bounded = BillingUsage.boundedSpend(
+            usedAmount: 5,
+            limitAmount: 10,
+            currencyCode: "USD"
+        )
+        let used = BillingUsagePresentation(
+            usage: bounded,
+            displayMode: .used,
+            locale: locale
+        )
+        let remaining = BillingUsagePresentation(
+            usage: bounded,
+            displayMode: .remaining,
+            locale: locale
+        )
+        let uncapped = BillingUsagePresentation(
+            usage: .unboundedSpend(
+                usedAmount: 1234.56,
+                currencyCode: "USD"
             ),
-            QuotaWindow(
-                kind: .weekly,
-                usedPercent: 52,
-                resetsAt: Date().addingTimeInterval(86_400)
-            )
-        ]
-        let withoutCredits = ProviderState(
-            provider: .claude,
-            snapshot: ProviderSnapshot(
-                provider: .claude,
-                planName: "Pro",
-                windows: windows,
-                fetchedAt: Date()
-            )
+            displayMode: .remaining,
+            locale: locale
         )
-        let withCredits = ProviderState(
-            provider: .claude,
-            snapshot: ProviderSnapshot(
-                provider: .claude,
-                planName: "Pro",
-                windows: windows,
-                creditUsage: CreditUsage(
-                    usedAmount: 99.99,
-                    limitAmount: 200,
-                    usedPercent: 49.995
-                ),
-                fetchedAt: Date()
-            )
+        let credits = BillingUsagePresentation(
+            usage: .flexCreditBalance(
+                remainingCredits: 820,
+                usdValue: 32.8
+            ),
+            displayMode: .used,
+            locale: locale
         )
 
-        let baseSize = measuredSize(
-            of: ProviderSectionView(state: withoutCredits),
-            width: panelWidth - 20
-        )
-        let creditSize = measuredSize(
-            of: ProviderSectionView(state: withCredits),
-            width: panelWidth - 20
-        )
-
-        XCTAssertGreaterThan(creditSize.height, baseSize.height + 20)
-        XCTAssertLessThan(creditSize.height, baseSize.height + 40)
+        XCTAssertEqual(used.title, "Extra usage")
+        XCTAssertEqual(used.valueText, "$5.00 / $10.00 spent")
+        XCTAssertEqual(remaining.valueText, "$5.00 / $10.00 left")
+        XCTAssertEqual(uncapped.valueText, "$1,234.56 spent")
+        XCTAssertEqual(credits.title, "Credits")
+        XCTAssertEqual(credits.valueText, "$32.80 · 820 credits left")
+        XCTAssertTrue(credits.accessibilityValue.contains("remaining"))
     }
 
     func testProviderLoadingAndTransientFailureStatesStayInsideOneCompactSurface() {
@@ -269,6 +297,11 @@ final class VisualSnapshotTests: XCTestCase {
                         resetsAt: now.addingTimeInterval(345_600)
                     )
                 ],
+                billingUsage: .boundedSpend(
+                    usedAmount: 5,
+                    limitAmount: 10,
+                    currencyCode: "USD"
+                ),
                 fetchedAt: now
             ))]
         )
@@ -299,6 +332,10 @@ final class VisualSnapshotTests: XCTestCase {
                         resetsAt: now.addingTimeInterval(432_000)
                     )
                 ],
+                billingUsage: .flexCreditBalance(
+                    remainingCredits: 820,
+                    usdValue: 32.8
+                ),
                 fetchedAt: now
             ))]
         )

@@ -24,7 +24,7 @@ enum ClaudeUsageMapper {
             provider: .claude,
             planName: planName(credentials),
             windows: windows,
-            creditUsage: creditUsage(body["extra_usage"]),
+            billingUsage: billingUsage(body["extra_usage"]),
             fetchedAt: now
         )
     }
@@ -88,29 +88,31 @@ enum ClaudeUsageMapper {
         }
     }
 
-    private static func creditUsage(_ value: Any?) -> CreditUsage? {
-        guard let object = ProviderParsing.object(value),
-              object["is_enabled"] as? Bool == true else {
+    private static func billingUsage(_ value: Any?) -> BillingUsage? {
+        guard
+            let object = ProviderParsing.object(value),
+            object["is_enabled"] as? Bool == true,
+            let usedCents = ProviderParsing.double(object["used_credits"])
+        else {
             return nil
         }
 
-        let usedAmount = ProviderParsing.double(object["used_credits"])
-            .map { max($0, 0) / 100 }
-        let limitAmount = ProviderParsing.double(object["monthly_limit"])
-            .map { max($0, 0) / 100 }
-        let usedPercent = ProviderParsing.double(object["utilization"])
-            .map { min(max($0, 0), 100) }
-        guard usedAmount != nil || limitAmount != nil || usedPercent != nil else {
+        // Anthropic names these fields "credits", but reports integer US cents.
+        let usedAmount = ProviderParsing.centsToDollars(usedCents)
+        if let limitCents = ProviderParsing.double(object["monthly_limit"]),
+           limitCents > 0 {
+            return .boundedSpend(
+                usedAmount: usedAmount,
+                limitAmount: ProviderParsing.centsToDollars(limitCents),
+                currencyCode: "USD"
+            )
+        }
+        guard usedAmount > 0 else {
             return nil
         }
-
-        let currencyCode = ProviderParsing.string(object["currency"])?
-            .uppercased() ?? "USD"
-        return CreditUsage(
+        return .unboundedSpend(
             usedAmount: usedAmount,
-            limitAmount: limitAmount,
-            usedPercent: usedPercent,
-            currencyCode: currencyCode
+            currencyCode: "USD"
         )
     }
 }

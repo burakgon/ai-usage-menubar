@@ -4,13 +4,12 @@ import SwiftUI
 struct DashboardView: View {
     @Bindable var store: UsageStore
     @Bindable var launchAtLogin: LaunchAtLoginController
-    @Binding var menuBarSelection: MenuBarSelection
-    @Binding var menuBarWindow: MenuBarWindow
     @Binding var usageDisplayMode: UsageDisplayMode
     @Binding var refreshInterval: RefreshIntervalOption
     let availableUpdateVersion: String?
     let isCheckingForUpdates: Bool
     var checkForUpdates: @MainActor () -> Void = {}
+    var openSettings: @MainActor () -> Void = {}
 
     var body: some View {
         GlassEffectContainer(spacing: 10) {
@@ -79,85 +78,12 @@ struct DashboardView: View {
                 .help(isRefreshing ? "Refreshing usage" : "Refresh now")
                 .disabled(isRefreshing)
 
-                Menu {
-                    Picker("Menu Bar Provider", selection: $menuBarSelection) {
-                        ForEach(MenuBarSelection.allCases) { option in
-                            Label {
-                                Text(option.title)
-                            } icon: {
-                                if let provider = option.provider {
-                                    ProviderIcon(provider: provider, size: 13)
-                                } else if option == .all {
-                                    Image(systemName: "rectangle.3.group")
-                                } else {
-                                    Image(systemName: "gauge.with.dots.needle.50percent")
-                                }
-                            }
-                            .tag(option)
-                        }
-                    }
-
-                    Picker("Menu Bar Period", selection: $menuBarWindow) {
-                        ForEach(MenuBarWindow.allCases) { option in
-                            Label(
-                                option.title,
-                                systemImage: option == .session
-                                    ? "clock"
-                                    : "calendar"
-                            )
-                            .tag(option)
-                        }
-                    }
-
-                    Picker("Refresh", selection: $refreshInterval) {
-                        ForEach(RefreshIntervalOption.allCases) { option in
-                            Text(option.title)
-                                .tag(option)
-                        }
-                    }
-
-                    Divider()
-
-                    Toggle(
-                        "Launch at Login",
-                        isOn: Binding(
-                            get: { launchAtLogin.isEnabled },
-                            set: { launchAtLogin.setEnabled($0) }
-                        )
-                    )
-
-                    if launchAtLogin.requiresApproval {
-                        Text("Approval needed in System Settings")
-                    }
-                    if let error = launchAtLogin.errorMessage {
-                        Text(error)
-                    }
-
-                    Divider()
-
-                    Button(action: checkForUpdates) {
-                        Label(
-                            "Check for Updates…",
-                            systemImage: "arrow.triangle.2.circlepath"
-                        )
-                    }
-                    .disabled(isCheckingForUpdates)
-
-                    Link(destination: AppLinks.repository) {
-                        Label("Star AI Usage on GitHub", systemImage: "star")
-                    }
-
-                    Button("Quit AI Usage") {
-                        NSApplication.shared.terminate(nil)
-                    }
-                } label: {
+                Button(action: openSettings) {
                     SettingsButtonLabel()
                 }
-                .menuStyle(.button)
-                .menuIndicator(.hidden)
                 .help("Settings")
                 .accessibilityLabel("Settings")
-                .accessibilityHint("Opens preferences and app actions")
+                .accessibilityHint("Shows settings in the menu bar panel")
             }
             .buttonStyle(.plain)
             .glassEffect(.regular, in: .capsule)
@@ -225,7 +151,7 @@ struct DashboardContentView: View {
             header
             ForEach(ProviderID.allCases) { provider in
                 if let state = store.states[provider],
-                   state.isVisibleInDashboard {
+                   store.isProviderVisibleInDashboard(provider) {
                     ProviderSectionView(
                         state: state,
                         displayMode: usageDisplayMode

@@ -1,6 +1,9 @@
 import Foundation
 
 enum CodexUsageMapper {
+    // Codex flex credits are worth four US cents each.
+    static let creditUSDRate = 0.04
+
     private enum WindowKind {
         case session
         case weekly
@@ -50,7 +53,7 @@ enum CodexUsageMapper {
             provider: .codex,
             planName: planName(body["plan_type"]),
             windows: windows,
-            creditUsage: creditUsage(body["credits"]),
+            billingUsage: billingUsage(response: response, body: body),
             fetchedAt: now
         )
     }
@@ -176,26 +179,44 @@ enum CodexUsageMapper {
             .contains { $0.contains("spark") }
     }
 
-    private static func creditUsage(_ value: Any?) -> CreditUsage? {
-        guard let object = ProviderParsing.object(value) else {
+    private static func billingUsage(
+        response: HTTPResponse,
+        body: [String: Any]
+    ) -> BillingUsage? {
+        guard let remaining = creditsRemaining(response: response, body: body) else {
             return nil
         }
 
-        let balanceAmount = ProviderParsing.double(object["balance"])
-            .map { max($0, 0) }
-        let isUnlimited = object["unlimited"] as? Bool == true
-        let hasCredits = (object["has_credits"] as? Bool) ??
-            (object["hasCredits"] as? Bool)
-        guard balanceAmount != nil || isUnlimited || hasCredits == true else {
-            return nil
+        // Price the whole-credit balance after flooring, matching Codex/OpenUsage.
+        let floored = remaining.rounded(.down)
+        let remainingCredits: Int
+        if floored <= 0 {
+            remainingCredits = 0
+        } else if floored >= Double(Int.max) {
+            remainingCredits = Int.max
+        } else {
+            remainingCredits = Int(floored)
         }
+        return .flexCreditBalance(
+            remainingCredits: remainingCredits,
+            usdValue: Double(remainingCredits) * creditUSDRate
+        )
+    }
 
-        let currencyCode = ProviderParsing.string(object["currency"])?
-            .uppercased() ?? "USD"
-        return CreditUsage(
-            balanceAmount: balanceAmount,
-            currencyCode: currencyCode,
-            isUnlimited: isUnlimited
+    private static func creditsRemaining(
+        response: HTTPResponse,
+        body: [String: Any]
+    ) -> Double? {
+        if let credits = ProviderParsing.object(body["credits"]) {
+            if let balance = ProviderParsing.double(credits["balance"]) {
+                return balance
+            }
+            if credits["has_credits"] as? Bool == false {
+                return 0
+            }
+        }
+        return ProviderParsing.double(
+            response.header("x-codex-credits-balance")
         )
     }
 }

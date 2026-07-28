@@ -17,7 +17,7 @@ struct ProviderSectionView: View {
         VStack(alignment: .leading, spacing: 0) {
             providerHeader
             if let snapshot = state.snapshot,
-               !snapshot.windows.isEmpty || snapshot.creditUsage != nil {
+               !snapshot.windows.isEmpty || snapshot.billingUsage != nil {
                 if !snapshot.windows.isEmpty {
                     QuotaGrid(
                         windows: snapshot.windows,
@@ -26,8 +26,11 @@ struct ProviderSectionView: View {
                     .padding(.horizontal, 10)
                     .padding(.bottom, 6)
                 }
-                if let creditUsage = snapshot.creditUsage {
-                    CreditUsageRow(usage: creditUsage)
+                if let billingUsage = snapshot.billingUsage {
+                    BillingUsageRow(
+                        usage: billingUsage,
+                        displayMode: displayMode
+                    )
                 }
             } else if state.isRefreshing {
                 ProviderStatusRow(
@@ -86,66 +89,123 @@ struct ProviderSectionView: View {
     }
 }
 
-private struct CreditUsageRow: View {
-    let usage: CreditUsage
+struct BillingUsagePresentation: Equatable {
+    let title: String
+    let valueText: String
+    let accessibilityValue: String
+
+    init(
+        usage: BillingUsage,
+        displayMode: UsageDisplayMode,
+        locale: Locale = .current
+    ) {
+        switch usage {
+        case let .boundedSpend(usedAmount, limitAmount, currencyCode):
+            let displayedAmount: Double
+            let suffix: String
+            switch displayMode {
+            case .used:
+                displayedAmount = usedAmount
+                suffix = "spent"
+            case .remaining:
+                displayedAmount = max(limitAmount - usedAmount, 0)
+                suffix = "left"
+            }
+            let displayed = Self.currency(
+                displayedAmount,
+                code: currencyCode,
+                locale: locale
+            )
+            let limit = Self.currency(
+                limitAmount,
+                code: currencyCode,
+                locale: locale
+            )
+            title = "Extra usage"
+            valueText = "\(displayed) / \(limit) \(suffix)"
+            accessibilityValue = "\(displayed) \(suffix), \(limit) monthly limit"
+
+        case let .unboundedSpend(usedAmount, currencyCode):
+            let used = Self.currency(
+                usedAmount,
+                code: currencyCode,
+                locale: locale
+            )
+            title = "Extra usage"
+            valueText = "\(used) spent"
+            accessibilityValue = "\(used) spent, no monthly limit"
+
+        case let .flexCreditBalance(remainingCredits, usdValue):
+            let value = Self.currency(
+                usdValue,
+                code: "USD",
+                locale: locale
+            )
+            let credits = Self.integer(remainingCredits, locale: locale)
+            title = "Credits"
+            valueText = "\(value) · \(credits) credits left"
+            accessibilityValue =
+                "\(credits) Codex credits remaining, worth \(value)"
+        }
+    }
+
+    private static func currency(
+        _ amount: Double,
+        code: String,
+        locale: Locale
+    ) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(amount)"
+    }
+
+    private static func integer(_ value: Int, locale: Locale) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+}
+
+private struct BillingUsageRow: View {
+    let usage: BillingUsage
+    let displayMode: UsageDisplayMode
 
     var body: some View {
+        let presentation = BillingUsagePresentation(
+            usage: usage,
+            displayMode: displayMode
+        )
+
         HStack(spacing: 7) {
             Image(systemName: "creditcard")
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tertiary)
                 .frame(width: 14, height: 14)
 
-            Text("Credits")
+            Text(presentation.title)
                 .foregroundStyle(.secondary)
 
             Spacer(minLength: 8)
 
-            Text(valueText)
+            Text(presentation.valueText)
                 .monospacedDigit()
                 .fontWeight(.medium)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .minimumScaleFactor(0.75)
         }
         .font(.caption)
         .frame(maxWidth: .infinity, minHeight: 24)
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Credits")
-        .accessibilityValue(valueText)
-    }
-
-    private var valueText: String {
-        if usage.isUnlimited {
-            return "Unlimited"
-        }
-        if let balance = usage.balanceAmount {
-            return "\(currency(balance)) left"
-        }
-        if let remaining = usage.remainingAmount {
-            return "\(currency(remaining)) left"
-        }
-        if let used = usage.usedAmount {
-            return "\(currency(used)) used"
-        }
-        if let limit = usage.limitAmount {
-            return "\(currency(limit)) limit"
-        }
-        if let percent = usage.usedPercent {
-            let formatted = percent.formatted(
-                .number.precision(.fractionLength(0...1))
-            )
-            return "\(formatted)% used"
-        }
-        return "Available"
-    }
-
-    private func currency(_ amount: Double) -> String {
-        amount.formatted(
-            .currency(code: usage.currencyCode)
-                .precision(.fractionLength(2))
-        )
+        .accessibilityLabel(presentation.title)
+        .accessibilityValue(presentation.accessibilityValue)
     }
 }
 
