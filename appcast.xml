@@ -6,6 +6,26 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.2.1</title>
+            <pubDate>Wed, 29 Jul 2026 17:16:15 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.2.1
+
+This release fixes the menu bar panel's inactive appearance in light mode.
+
+- Activate AI Usage before presenting its popover so Liquid Glass uses the
+  correct active light-mode colors immediately.
+- Make the presented popover the key window without requiring a second click.
+- Introduce the adaptive three-bar app icon in light and dark appearances.
+- Keep provider tracking, saved menu bar choices, refresh behavior, and
+  background efficiency unchanged.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.2.1/AI-Usage.dmg" length="3903422" type="application/octet-stream" sparkle:edSignature="byKnEnz8xSxHOqTCIEXGUItLYcT2oZhQFnJZogtG12hoP91AwrTnet2GvLOz+YkGys3F/4CsXg/5+d8AHUafDw=="/>
+        </item>
+        <item>
             <title>0.2.0</title>
             <pubDate>Wed, 29 Jul 2026 09:38:38 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -103,34 +123,9 @@ loaded in the background.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.7/AI-Usage.dmg" length="3508891" type="application/octet-stream" sparkle:edSignature="voTY3H/wwVz8AXLUANfzo4V/bAJ3lFnG0hwlD47lAu6co/d6Jru802K+wn5b+BwvhmcBVsN2hA/dJVosNn2CCg=="/>
         </item>
-        <item>
-            <title>0.1.6</title>
-            <pubDate>Mon, 27 Jul 2026 23:51:41 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>7</sparkle:version>
-            <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.6
-
-This release eliminates sustained CPU usage while the menu bar panel is closed.
-
-- Replace the permanently hosted SwiftUI menu bar window with a native AppKit
-  status item.
-- Create the Liquid Glass dashboard only when it is opened, then release its
-  complete SwiftUI hosting tree when the panel closes.
-- Keep menu bar percentages, monochrome provider icons, stale-state warnings,
-  accessibility labels, and saved preferences unchanged.
-- Preserve the existing compact panel design in light mode, dark mode, and
-  Reduce Transparency.
-
-The result is a lighter idle app without changing Claude Code, Codex, refresh,
-launch-at-login, or signed update behavior.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.6/AI-Usage.dmg" length="3472542" type="application/octet-stream" sparkle:edSignature="V5UcSkPFSU2RbgFsWMxbPo3Dk0ID1tk+Lzzfirc9PJLJOcWOYPAEn2M4vjKZ+P+SXZCFBWbNiAN0Zynb0hFXAw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 0bSTZ92kLutXV6Ksn8Z4fnkMeY+Qew8wOO28kycmtKNmDs2wdzMHgKK/Q8UMVAFx9++XTdOJQujlSBt9gz80AQ==
-length: 7422
+edSignature: e7WPtQ7zABnvjrZbPZrTSYaIpch3EQDT/tnX900CH77w2LVd/G02QUV8tnHnJGNNWTHbrfpQ70xUFi+O1vBGAw==
+length: 7219
 -->
