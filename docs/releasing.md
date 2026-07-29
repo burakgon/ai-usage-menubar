@@ -25,7 +25,8 @@ manager before moving release duties to another Mac.
 ## Build the DMG and appcast
 
 ```bash
-./scripts/package_release.sh 0.1.0
+version=0.2.1
+./scripts/package_release.sh "$version"
 ```
 
 The script:
@@ -45,7 +46,7 @@ For public releases, sign Sparkle's nested helpers, require an accepted Apple
 notarization result, and staple the ticket in the same pass:
 
 ```bash
-NOTARYTOOL_PROFILE=macos-notary ./scripts/package_release.sh 0.1.0
+NOTARYTOOL_PROFILE=macos-notary ./scripts/package_release.sh "$version"
 ```
 
 ## Publish
@@ -55,11 +56,11 @@ Review and commit the generated `appcast.xml`, then create an annotated
 DMG so the in-app feed is live:
 
 ```bash
-gh release create v0.1.0 \
-  dist/v0.1.0/AI-Usage.dmg \
-  dist/v0.1.0/AI-Usage.dmg.sha256 \
-  --title "AI Usage 0.1.0" \
-  --notes-file docs/releases/0.1.0.md
+gh release create "v$version" \
+  "dist/v$version/AI-Usage.dmg" \
+  "dist/v$version/AI-Usage.dmg.sha256" \
+  --title "AI Usage $version" \
+  --notes-file "docs/releases/$version.md"
 ```
 
 Finally, verify that the raw appcast and the DMG enclosure URL both return

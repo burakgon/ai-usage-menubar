@@ -4,7 +4,8 @@ Thanks for helping make AI Usage better.
 
 ## Before you start
 
-- Keep the app focused on Claude Code and Codex subscription limits.
+- Keep the app focused on lightweight, read-only quota visibility for
+  supported coding agents.
 - Prefer native macOS APIs and semantic system colors.
 - Avoid telemetry, background log scanning, local servers, and persistent
   usage history.

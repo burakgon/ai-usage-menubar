@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="AIUsage/Assets.xcassets/AppIcon.appiconset/icon_128.png" width="96" alt="AI Usage app icon">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-icon-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/app-icon-light.png">
+    <img src="docs/images/app-icon-dark.png" width="96" alt="AI Usage adaptive app icon with three compact usage bars">
+  </picture>
 </p>
 
 <h1 align="center">AI Usage</h1>
@@ -30,11 +34,11 @@ server, telemetry, usage history, or background log scanning.
 ## Choose exactly what appears.
 
 <p align="center">
-  <img src="docs/images/ai-usage-settings-dark.png" width="760" alt="AI Usage native settings popover in dark mode, with separate tracking, menu bar visibility, and metric choices for Claude Code and Codex">
+  <img src="docs/images/ai-usage-settings-dark.png" width="760" alt="AI Usage native settings popover in dark mode, showing tracking, menu bar visibility, and metric choices for all seven supported coding agents">
 </p>
 
 <p align="center">
-  <sub>Show either provider, then pick the metrics beneath it. Nothing more.</sub>
+  <sub>Track every tool you use. Only selected providers and metrics reach the menu bar.</sub>
 </p>
 
 ## Other usage apps stay heavy. AI Usage stays light.
@@ -83,7 +87,6 @@ You need:
 
 - macOS 26 or newer
 - Xcode 27 or newer
-- At least one supported coding agent already installed
 
 Then:
 
@@ -147,6 +150,9 @@ over-the-air updates.
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md)
 before opening a pull request.
+
+Adaptive icon previews can be regenerated with
+`./scripts/generate_app_icon.swift`.
 
 Release packaging and OTA feed maintenance are documented in
 [docs/releasing.md](docs/releasing.md).

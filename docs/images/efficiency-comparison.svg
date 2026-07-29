@@ -42,6 +42,6 @@
       <rect x="540" y="208" width="34" height="10" rx="5" fill="#30D158"/>
     </g>
 
-    <text x="500" y="251" fill="#7D8793" font-size="12" font-weight="600" text-anchor="middle">* Panel closed · 0.0% CPU between scheduled refreshes · 10/10 one-second samples on v0.1.6</text>
+    <text x="500" y="251" fill="#7D8793" font-size="12" font-weight="600" text-anchor="middle">* Panel closed · 0.0% CPU between scheduled refreshes · 10/10 one-second samples on v0.2.0</text>
   </g>
 </svg>

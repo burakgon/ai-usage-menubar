@@ -137,7 +137,7 @@ final class VisualSnapshotTests: XCTestCase {
     }
 
     func testSettingsShowsEveryProviderInLightAndDark() async {
-        let store = await makePopulatedStore()
+        let store = await makeFullyPopulatedStore()
         let suiteName = "VisualSnapshotTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -343,6 +343,129 @@ final class VisualSnapshotTests: XCTestCase {
             providers: [claude, codex],
             availabilityChecker: FixedProviderAvailabilityChecker(
                 installed: [.claude, .codex]
+            )
+        )
+        await store.refresh()
+        return store
+    }
+
+    private func makeFullyPopulatedStore() async -> UsageStore {
+        let now = Date()
+        let snapshots: [ProviderID: ProviderSnapshot] = [
+            .claude: ProviderSnapshot(
+                provider: .claude,
+                planName: "Pro 20x",
+                windows: [
+                    QuotaWindow(kind: .session, usedPercent: 62, resetsAt: nil),
+                    QuotaWindow(kind: .weekly, usedPercent: 37, resetsAt: nil),
+                    QuotaWindow(kind: .sonnet, usedPercent: 86, resetsAt: nil),
+                    QuotaWindow(kind: .fable, usedPercent: 14, resetsAt: nil)
+                ],
+                billingUsage: .boundedSpend(
+                    usedAmount: 5,
+                    limitAmount: 10,
+                    currencyCode: "USD"
+                ),
+                fetchedAt: now
+            ),
+            .codex: ProviderSnapshot(
+                provider: .codex,
+                planName: "Pro 5x",
+                windows: [
+                    QuotaWindow(kind: .weekly, usedPercent: 74, resetsAt: nil),
+                    QuotaWindow(
+                        kind: .sparkSession,
+                        usedPercent: 11,
+                        resetsAt: nil
+                    ),
+                    QuotaWindow(
+                        kind: .sparkWeekly,
+                        usedPercent: 52,
+                        resetsAt: nil
+                    )
+                ],
+                billingUsage: .flexCreditBalance(
+                    remainingCredits: 820,
+                    usdValue: 32.8
+                ),
+                fetchedAt: now
+            ),
+            .cursor: ProviderSnapshot(
+                provider: .cursor,
+                planName: "Pro",
+                windows: [
+                    QuotaWindow(
+                        kind: .totalUsage,
+                        usedPercent: 25,
+                        resetsAt: nil
+                    ),
+                    QuotaWindow(
+                        kind: .autoUsage,
+                        usedPercent: 40,
+                        resetsAt: nil
+                    ),
+                    QuotaWindow(
+                        kind: .apiUsage,
+                        usedPercent: 12,
+                        resetsAt: nil
+                    )
+                ],
+                fetchedAt: now
+            ),
+            .antigravity: ProviderSnapshot(
+                provider: .antigravity,
+                planName: "Pro",
+                windows: [
+                    QuotaWindow(kind: .weekly, usedPercent: 34, resetsAt: nil),
+                    QuotaWindow(
+                        kind: .claudePool,
+                        usedPercent: 48,
+                        resetsAt: nil
+                    )
+                ],
+                fetchedAt: now
+            ),
+            .copilot: ProviderSnapshot(
+                provider: .copilot,
+                planName: "Individual Pro",
+                windows: [
+                    QuotaWindow(kind: .credits, usedPercent: 25, resetsAt: nil),
+                    QuotaWindow(kind: .chat, usedPercent: 20, resetsAt: nil),
+                    QuotaWindow(
+                        kind: .completions,
+                        usedPercent: 8,
+                        resetsAt: nil
+                    )
+                ],
+                fetchedAt: now
+            ),
+            .devin: ProviderSnapshot(
+                provider: .devin,
+                planName: "Teams",
+                windows: [
+                    QuotaWindow(kind: .daily, usedPercent: 20, resetsAt: nil),
+                    QuotaWindow(kind: .weekly, usedPercent: 65, resetsAt: nil)
+                ],
+                fetchedAt: now
+            ),
+            .grok: ProviderSnapshot(
+                provider: .grok,
+                planName: "SuperGrok",
+                windows: [
+                    QuotaWindow(kind: .weekly, usedPercent: 48, resetsAt: nil)
+                ],
+                fetchedAt: now
+            )
+        ]
+        let providers = ProviderID.allCases.compactMap { provider in
+            snapshots[provider].map {
+                SequencedProvider(id: provider, results: [.success($0)])
+            }
+        }
+        let store = UsageStore(
+            providers: providers,
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: Set(ProviderID.allCases)
             )
         )
         await store.refresh()
