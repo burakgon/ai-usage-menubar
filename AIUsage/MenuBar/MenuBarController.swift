@@ -2,6 +2,13 @@ import AppKit
 import Observation
 import SwiftUI
 
+@MainActor
+protocol ApplicationActivating: AnyObject {
+    func activate()
+}
+
+extension NSApplication: ApplicationActivating {}
+
 struct PanelToggleGate {
     private(set) var suppressesNextToggle = false
 
@@ -253,6 +260,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let launchAtLogin: LaunchAtLoginController
     private let updateController: UpdateController
     private let statusBar: NSStatusBar
+    private let application: any ApplicationActivating
 
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
@@ -265,13 +273,15 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         preferences: AppPreferences,
         launchAtLogin: LaunchAtLoginController,
         updateController: UpdateController,
-        statusBar: NSStatusBar = .system
+        statusBar: NSStatusBar = .system,
+        application: any ApplicationActivating = NSApplication.shared
     ) {
         self.store = store
         self.preferences = preferences
         self.launchAtLogin = launchAtLogin
         self.updateController = updateController
         self.statusBar = statusBar
+        self.application = application
         super.init()
     }
 
@@ -345,12 +355,16 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         self.popover = popover
 
+        // Status-item clicks do not activate an LSUIElement app automatically.
+        // Activate first so Liquid Glass resolves its active appearance.
+        application.activate()
         installContent(for: route, in: popover)
         popover.show(
             relativeTo: button.bounds,
             of: button,
             preferredEdge: .minY
         )
+        popover.contentViewController?.view.window?.makeKey()
     }
 
     private func installContent(
