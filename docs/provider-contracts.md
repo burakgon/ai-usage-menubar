@@ -1,11 +1,13 @@
 # Provider contracts
 
 This document records the narrow external contract used by AI Usage. It is
-intentionally limited to Claude Code and Codex subscription quota windows.
+intentionally limited to quota windows that can be fetched from credentials
+the supported tools already store locally.
 
-The reference implementation was OpenUsage `v0.7.6`, commit
-`5a2864f19a1c664f6a140ba06abad5596000af10`. These are undocumented provider
-endpoints and may change; fixture tests protect the currently known behavior.
+The reference implementation was OpenUsage `v0.7.6`, plus provider updates
+through commit `9d2bf09f10e21f769494a525a9d65c84d7aeb1df`. These are
+undocumented provider endpoints and may change; fixture tests protect the
+currently known behavior.
 
 ## Claude Code
 
@@ -113,6 +115,27 @@ the Codex CLI is adopted.
 The recognized refresh failures are `refresh_token_expired`,
 `refresh_token_reused`, and `refresh_token_invalidated`. A usage `401` or `403`
 causes at most one refresh and one retry.
+
+## Additional providers
+
+| Provider | Local credential source | First-party usage contract | Mapped metrics |
+| --- | --- | --- | --- |
+| Cursor | Cursor state SQLite database, then `cursor-access-token` and `cursor-refresh-token` Keychain items | `api2.cursor.sh` DashboardService Connect RPCs | Total, Auto, API |
+| Antigravity | Keychain service `gemini`, account `antigravity` | Google Cloud Code quota-summary API, with model-quota fallback | Gemini session/weekly, Claude session/weekly |
+| GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
+| Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
+| Grok | `~/.grok/auth.json` | Grok CLI billing and settings APIs | Weekly |
+
+Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
+credential already stored by the corresponding tool. Refreshed tokens are
+persisted only where necessary; Antigravity's derived access token is cached
+privately by AI Usage and bound to a hash of the current refresh credential.
+
+OpenCode is intentionally not included: its current limits require scanning
+local usage databases and are machine-local estimates, which conflicts with
+AI Usage's no-background-log-scanning design. OpenRouter and Z.ai are also
+excluded because they require users to add API keys instead of reusing a local
+agent login.
 
 ## Persistence and failure policy
 

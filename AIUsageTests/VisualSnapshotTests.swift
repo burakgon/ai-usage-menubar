@@ -136,7 +136,7 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 250)
     }
 
-    func testSettingsFitsTheMenuBarPopoverInLightAndDark() async {
+    func testSettingsShowsEveryProviderInLightAndDark() async {
         let store = await makePopulatedStore()
         let suiteName = "VisualSnapshotTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -160,8 +160,8 @@ final class VisualSnapshotTests: XCTestCase {
             let width = MenuBarPanelRoute.settings.width
             let size = measuredSize(of: view, width: width)
             XCTAssertEqual(size.width, width, accuracy: 0.5)
-            XCTAssertLessThan(size.height, 500)
-            XCTAssertGreaterThan(size.height, 300)
+            XCTAssertLessThan(size.height, 720)
+            XCTAssertGreaterThan(size.height, 620)
         }
 
         defaults.removePersistentDomain(forName: suiteName)
@@ -341,7 +341,9 @@ final class VisualSnapshotTests: XCTestCase {
         )
         let store = UsageStore(
             providers: [claude, codex],
-            availabilityChecker: FixedProviderAvailabilityChecker()
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: [.claude, .codex]
+            )
         )
         await store.refresh()
         return store

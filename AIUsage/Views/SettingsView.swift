@@ -61,17 +61,8 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
     private var providerRows: some View {
-        let descriptors = ProviderCatalog.all
-        if descriptors.count > 2 {
-            ScrollView {
-                providerRowsContent(descriptors)
-            }
-            .frame(maxHeight: 260)
-        } else {
-            providerRowsContent(descriptors)
-        }
+        providerRowsContent(ProviderCatalog.all)
     }
 
     private func providerRowsContent(

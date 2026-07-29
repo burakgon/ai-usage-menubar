@@ -118,17 +118,21 @@ struct SystemProviderAvailabilityChecker: ProviderAvailabilityChecking {
 
     func installedProviders() async -> Set<ProviderID>? {
         await Task.detached(priority: .utility) {
-            guard let path = environment.value(for: "PATH") else {
-                return nil
-            }
+            let path = environment.value(for: "PATH") ?? ""
 
             return Set(ProviderID.allCases.filter { provider in
-                Self.containsExecutable(
-                    named: provider.rawValue,
-                    searchPath: path
-                )
+                let descriptor = provider.descriptor
+                return descriptor.executableNames.contains {
+                    Self.containsExecutable(named: $0, searchPath: path)
+                } || descriptor.installationIndicators.contains {
+                    Self.fileExists(at: $0)
+                }
             })
         }.value
+    }
+
+    private static func fileExists(at path: String) -> Bool {
+        FileManager.default.fileExists(atPath: expandHome(path))
     }
 
     private static func containsExecutable(

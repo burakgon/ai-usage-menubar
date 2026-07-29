@@ -90,6 +90,92 @@ final class AuthStoreTests: XCTestCase {
         let permissions = try XCTUnwrap(attributes[.posixPermissions] as? NSNumber)
         XCTAssertEqual(permissions.intValue, 0o600)
     }
+
+    func testCopilotPrefersEditorTokenOverGitHubCLI() {
+        let files = MemoryFiles([
+            CopilotAuthStore.editorAppsPath: """
+            {"github.com":{"oauth_token":"editor-token"}}
+            """,
+            CopilotAuthStore.ghHostsPath: """
+            github.com:
+                oauth_token: gh-token
+            """
+        ])
+        let store = CopilotAuthStore(
+            files: files,
+            keychain: MemoryKeychain()
+        )
+
+        XCTAssertEqual(store.loadToken()?.value, "editor-token")
+    }
+
+    func testDevinReadsTheCLICredentialsFormat() {
+        let store = DevinAuthStore(
+            files: MemoryFiles([
+                DevinAuthStore.credentialsPath: """
+                windsurf_api_key = "devin-key"
+                api_server_url = "https://example.test/"
+                """
+            ]),
+            sqlite: MemorySQLite()
+        )
+
+        XCTAssertEqual(
+            store.loadCredentialsFile(),
+            DevinAuth(
+                apiKey: "devin-key",
+                apiServerURL: "https://example.test"
+            )
+        )
+    }
+
+    func testGrokReadsKeyedAuthEntries() {
+        let store = GrokAuthStore(files: MemoryFiles([
+            GrokAuthStore.authPath: """
+            {
+              "user::client": {
+                "key": "access",
+                "refresh_token": "refresh"
+              }
+            }
+            """
+        ]))
+
+        XCTAssertEqual(store.loadCandidates().map(\.token), ["access"])
+        XCTAssertEqual(
+            store.loadCandidates().first.map(store.clientID),
+            "client"
+        )
+    }
+
+    func testAntigravityDecodesGoKeyringTokenEnvelope() throws {
+        let json = """
+        {
+          "token": {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "expiry": "2027-01-15T00:00:00Z"
+          }
+        }
+        """
+        let wrapped = "go-keyring-base64:" +
+            Data(json.utf8).base64EncodedString()
+        let token = try XCTUnwrap(AntigravityAuthStore.decode(wrapped))
+
+        XCTAssertEqual(token.accessToken, "access")
+        XCTAssertEqual(token.refreshToken, "refresh")
+        XCTAssertNotNil(token.expiry)
+    }
+}
+
+private struct MemorySQLite: SQLiteValueReading {
+    var values: [String: String] = [:]
+
+    func queryValue(path: String, sql: String) throws -> String? {
+        values.first { sql.contains($0.key) }?.value
+    }
+
+    func execute(path: String, sql: String) throws {}
 }
 
 private extension ClaudeOAuth {

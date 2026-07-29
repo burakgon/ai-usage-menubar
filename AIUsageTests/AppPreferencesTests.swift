@@ -443,6 +443,26 @@ final class AppPreferencesTests: XCTestCase {
     }
 
     @MainActor
+    func testNewProvidersAreSeededOnceWithoutUndoingOptOuts() throws {
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude]),
+            forKey: "trackedProviderIDs.v1"
+        )
+
+        let firstUpdatedRun = AppPreferences(defaults: defaults)
+        XCTAssertEqual(
+            firstUpdatedRun.trackedProviderIDs,
+            [.claude, .cursor, .antigravity, .copilot, .devin, .grok]
+        )
+
+        firstUpdatedRun.setTracking(false, for: .grok)
+        let laterRun = AppPreferences(defaults: defaults)
+
+        XCTAssertFalse(laterRun.isTracking(.grok))
+        XCTAssertTrue(laterRun.isTracking(.cursor))
+    }
+
+    @MainActor
     func testInvalidStoredScalarValuesFallBackSafely() {
         defaults.set("unknown", forKey: "menuBarSelection")
         defaults.set("unknown", forKey: "menuBarWindow")

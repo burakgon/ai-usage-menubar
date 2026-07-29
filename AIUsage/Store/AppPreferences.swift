@@ -79,7 +79,15 @@ final class AppPreferences {
             forKey: Key.trackedProviderIDs,
             in: defaults
         )
-        trackedProviderIDs = Set(restoredProviders ?? ProviderID.allCases)
+        var initialTrackedProviders = Set(
+            restoredProviders ?? ProviderID.allCases
+        )
+        if restoredProviders != nil,
+           defaults.object(forKey: Key.openUsageProvidersAdded) == nil {
+            initialTrackedProviders.formUnion(Self.openUsageProviders)
+        }
+        trackedProviderIDs = initialTrackedProviders
+        defaults.set(true, forKey: Key.openUsageProvidersAdded)
 
         let storedVisibleProviders = Self.decode(
             [ProviderID].self,
@@ -301,10 +309,21 @@ final class AppPreferences {
     }
 
     private static var initialWeeklyMenuBarItems: [MenuBarItemID] {
-        ProviderID.allCases.map {
-            MenuBarItemID(provider: $0, metric: .weekly)
+        [ProviderID.claude, .codex].map {
+            MenuBarItemID(
+                provider: $0,
+                metric: $0.defaultMenuBarMetric
+            )
         }
     }
+
+    private static let openUsageProviders: Set<ProviderID> = [
+        .cursor,
+        .antigravity,
+        .copilot,
+        .devin,
+        .grok
+    ]
 
     private static func hasLegacyInstallation(
         in defaults: UserDefaults
@@ -366,7 +385,7 @@ final class AppPreferences {
             $0.provider == provider
         }
         return providerItems.first {
-            $0.metric == .weekly
+            $0.metric == provider.defaultMenuBarMetric
         } ?? providerItems.first
     }
 
@@ -439,6 +458,8 @@ final class AppPreferences {
         static let previousConfiguredMenuBarItems =
             "menuBarItemsConfigured.v1"
         static let hasCompletedInitialSetup = "initialSettingsCompleted.v1"
+        static let openUsageProvidersAdded =
+            "openUsageProvidersAdded.v1"
         static let menuBarSelection = "menuBarSelection"
         static let menuBarWindow = "menuBarWindow"
         static let usageDisplayMode = "usageDisplayMode"

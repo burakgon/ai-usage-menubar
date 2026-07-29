@@ -7,10 +7,12 @@ patterns from OpenUsage:
   https://github.com/robinebers/openusage
   tag v0.7.6
   commit 5a2864f19a1c664f6a140ba06abad5596000af10
+  provider updates through commit 9d2bf09f10e21f769494a525a9d65c84d7aeb1df
 
-The adapted areas include Claude Code and Codex credential discovery, OAuth
-refresh and usage-request behavior, quota response mapping, the bounded
-subprocess runner, and private atomic credential-file replacement.
+The adapted areas include Claude Code, Codex, Cursor, Antigravity, GitHub
+Copilot, Devin, and Grok credential discovery, OAuth refresh and usage-request
+behavior, quota response mapping, selected monochrome provider icon paths, the
+bounded subprocess runner, and private atomic credential-file replacement.
 
 OpenUsage license:
 
@@ -66,5 +68,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 Claude is a trademark of Anthropic PBC. OpenAI and Codex are trademarks of
-OpenAI, L.L.C. The marks are used only to identify their respective services;
-no endorsement is implied.
+OpenAI, L.L.C. Cursor, Antigravity, GitHub Copilot, Devin, and Grok are marks
+of their respective owners. The marks are used only to identify their
+respective services; no endorsement is implied.

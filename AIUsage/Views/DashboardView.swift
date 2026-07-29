@@ -149,9 +149,29 @@ struct DashboardContentView: View {
     var body: some View {
         VStack(spacing: 8) {
             header
-            ForEach(ProviderID.allCases) { provider in
-                if let state = store.states[provider],
-                   store.isProviderVisibleInDashboard(provider) {
+            providerRows
+        }
+        .padding([.horizontal, .top], 10)
+        .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private var providerRows: some View {
+        if visibleProviders.count > 2 {
+            ScrollView {
+                providerRowsContent
+            }
+            .frame(maxHeight: 390)
+            .scrollIndicators(.hidden)
+        } else {
+            providerRowsContent
+        }
+    }
+
+    private var providerRowsContent: some View {
+        LazyVStack(spacing: 8) {
+            ForEach(visibleProviders) { provider in
+                if let state = store.states[provider] {
                     ProviderSectionView(
                         state: state,
                         displayMode: usageDisplayMode
@@ -159,8 +179,10 @@ struct DashboardContentView: View {
                 }
             }
         }
-        .padding([.horizontal, .top], 10)
-        .padding(.bottom, 6)
+    }
+
+    private var visibleProviders: [ProviderID] {
+        ProviderID.allCases.filter(store.isProviderVisibleInDashboard)
     }
 
     private var header: some View {

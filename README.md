@@ -5,7 +5,7 @@
 <h1 align="center">AI Usage</h1>
 
 <p align="center">
-  <strong>Claude Code and Codex limits, one click away.</strong><br>
+  <strong>Your coding agents' limits, one click away.</strong><br>
   Native Liquid Glass. Measured at 0.0% CPU between scheduled refreshes.
 </p>
 
@@ -23,9 +23,9 @@
   <sub>A real native menu bar popover — no Dock icon or persistent window.</sub>
 </p>
 
-AI Usage shows the limits that matter and stays out of the way. No extra
-account, API key, local server, telemetry, usage history, or background log
-scanning.
+AI Usage shows Claude Code, Codex, Cursor, Antigravity, GitHub Copilot, Devin,
+and Grok limits and stays out of the way. No extra account, API key, local
+server, telemetry, usage history, or background log scanning.
 
 ## Choose exactly what appears.
 
@@ -62,6 +62,11 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 
 - Claude Code session, weekly, Sonnet, and Fable limits
 - Codex session, weekly, Spark, and Spark weekly limits
+- Cursor total, Auto, and API usage
+- Antigravity Gemini and Claude pool limits
+- GitHub Copilot credits, chat, and completions
+- Devin daily and weekly quota
+- Grok weekly quota
 - Claude Code extra usage and Codex credits when available
 - Remaining or used percentages, switchable directly in the panel
 - Independent menu bar controls and metric choices for each provider
@@ -78,7 +83,7 @@ You need:
 
 - macOS 26 or newer
 - Xcode 27 or newer
-- Claude Code and/or Codex already signed in locally
+- At least one supported coding agent already installed
 
 Then:
 
@@ -97,9 +102,8 @@ To run without the installer, open `AIUsage.xcodeproj` in Xcode and run the
 
 ## How it works
 
-AI Usage reads the same local OAuth credentials already created by the
-`claude` and `codex` CLIs, then requests quota data directly from the
-providers' first-party endpoints.
+AI Usage reuses credentials already created by supported tools, then requests
+quota data directly from each provider's first-party endpoint.
 
 - Credentials stay on your Mac.
 - Tokens are never printed, logged, or sent anywhere else.
@@ -116,10 +120,10 @@ The exact researched contracts are documented in
 
 ## Menu bar behavior
 
-Claude Code and Codex can be shown or hidden independently. Under each provider,
+Every provider can be shown or hidden independently. Under each provider,
 choose any metric it currently returns. A single metric shows only its value;
 multiple metrics use tiny labels to stay compact. **Weekly** is selected for
-both providers by default, and **Left** is the default number mode.
+Claude Code and Codex by default, and **Left** is the default number mode.
 
 Raw percentages are shown exactly as reported by the provider. Only progress
 bar drawing is clamped to `0...100`. Remaining usage is bounded to `0...100`
@@ -150,8 +154,9 @@ Release packaging and OTA feed maintenance are documented in
 ## Upstream research
 
 Provider contracts and parts of the system-boundary implementation were
-adapted from [OpenUsage](https://github.com/robinebers/openusage), pinned to
-tag `v0.7.6` / commit `5a2864f19a1c664f6a140ba06abad5596000af10`.
+adapted from [OpenUsage](https://github.com/robinebers/openusage), using stable
+tag `v0.7.6` and provider updates through commit
+`9d2bf09f10e21f769494a525a9d65c84d7aeb1df`.
 See [NOTICE](NOTICE) for attribution.
 
 ## License
@@ -162,4 +167,4 @@ AI Usage is available under the [MIT License](LICENSE).
 
 If AI Usage saves you a few clicks, please
 [star the repository](https://github.com/burakgon/ai-usage-menubar). It helps
-other Claude Code and Codex users find it.
+other coding-agent users find it.

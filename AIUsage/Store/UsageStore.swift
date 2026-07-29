@@ -49,7 +49,15 @@ final class UsageStore {
     private var refreshGeneration = 0
 
     init(
-        providers: [any UsageProvider] = [ClaudeProvider(), CodexProvider()],
+        providers: [any UsageProvider] = [
+            ClaudeProvider(),
+            CodexProvider(),
+            CursorProvider(),
+            AntigravityProvider(),
+            CopilotProvider(),
+            DevinProvider(),
+            GrokProvider()
+        ],
         availabilityChecker: any ProviderAvailabilityChecking =
             SystemProviderAvailabilityChecker(),
         refreshInterval: RefreshIntervalOption = .fiveMinutes,

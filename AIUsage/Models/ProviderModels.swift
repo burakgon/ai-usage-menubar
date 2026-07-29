@@ -3,6 +3,11 @@ import Foundation
 enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     case claude
     case codex
+    case cursor
+    case antigravity
+    case copilot
+    case devin
+    case grok
 
     var id: Self { self }
 
@@ -10,6 +15,11 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
+        case .cursor: "Cursor"
+        case .antigravity: "Antigravity"
+        case .copilot: "GitHub Copilot"
+        case .devin: "Devin"
+        case .grok: "Grok"
         }
     }
 
@@ -17,6 +27,11 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .claude: "ProviderClaude"
         case .codex: "ProviderCodex"
+        case .cursor: "ProviderCursor"
+        case .antigravity: "ProviderAntigravity"
+        case .copilot: "ProviderCopilot"
+        case .devin: "ProviderDevin"
+        case .grok: "ProviderGrok"
         }
     }
 
@@ -25,27 +40,102 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
             id: self,
             displayName: displayName,
             iconAssetName: iconAssetName,
-            executableName: rawValue
+            executableNames: executableNames,
+            installationIndicators: installationIndicators,
+            defaultMenuBarMetric: defaultMenuBarMetric
         )
+    }
+
+    private var executableNames: [String] {
+        switch self {
+        case .claude: ["claude"]
+        case .codex: ["codex"]
+        case .cursor: ["cursor"]
+        case .antigravity: ["antigravity", "agy"]
+        case .copilot: ["copilot", "github-copilot"]
+        case .devin: ["devin"]
+        case .grok: ["grok"]
+        }
+    }
+
+    private var installationIndicators: [String] {
+        switch self {
+        case .claude:
+            ["~/.claude", "~/.config/claude"]
+        case .codex:
+            ["~/.codex", "~/.config/codex"]
+        case .cursor:
+            [
+                "/Applications/Cursor.app",
+                "~/Applications/Cursor.app",
+                "~/Library/Application Support/Cursor"
+            ]
+        case .antigravity:
+            [
+                "/Applications/Antigravity.app",
+                "~/Applications/Antigravity.app",
+                "~/Library/Application Support/Antigravity"
+            ]
+        case .copilot:
+            [
+                "~/.config/github-copilot/apps.json",
+                "~/.config/github-copilot/hosts.json"
+            ]
+        case .devin:
+            [
+                "~/.local/share/devin",
+                "/Applications/Devin.app",
+                "~/Applications/Devin.app",
+                "~/Library/Application Support/Devin"
+            ]
+        case .grok:
+            ["~/.grok"]
+        }
+    }
+
+    var defaultMenuBarMetric: MenuBarMetricID {
+        switch self {
+        case .cursor: .totalUsage
+        case .copilot: .credits
+        case .claude, .codex, .antigravity, .devin, .grok: .weekly
+        }
     }
 }
 
 enum QuotaKind: String, Codable, Hashable, Sendable {
     case session
     case weekly
+    case daily
     case sonnet
     case fable
     case sparkSession
     case sparkWeekly
+    case totalUsage
+    case autoUsage
+    case apiUsage
+    case credits
+    case chat
+    case completions
+    case claudePool
+    case claudePoolWeekly
 
     var title: String {
         switch self {
         case .session: "Session"
         case .weekly: "Weekly"
+        case .daily: "Daily"
         case .sonnet: "Sonnet"
         case .fable: "Fable"
         case .sparkSession: "Spark"
         case .sparkWeekly: "Spark Weekly"
+        case .totalUsage: "Total Usage"
+        case .autoUsage: "Auto Usage"
+        case .apiUsage: "API Usage"
+        case .credits: "Credits"
+        case .chat: "Chat"
+        case .completions: "Completions"
+        case .claudePool: "Claude"
+        case .claudePoolWeekly: "Claude Weekly"
         }
     }
 
@@ -53,10 +143,19 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         switch self {
         case .session: .session
         case .weekly: .weekly
+        case .daily: .daily
         case .sonnet: .sonnet
         case .fable: .fable
         case .sparkSession: .spark
         case .sparkWeekly: .sparkWeekly
+        case .totalUsage: .totalUsage
+        case .autoUsage: .autoUsage
+        case .apiUsage: .apiUsage
+        case .credits: .credits
+        case .chat: .chat
+        case .completions: .completions
+        case .claudePool: .claudePool
+        case .claudePoolWeekly: .claudePoolWeekly
         }
     }
 }
@@ -64,10 +163,18 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
 enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case session
     case weekly
+    case daily
     case sonnet
     case fable
     case spark
     case sparkWeekly
+    case totalUsage
+    case autoUsage
+    case apiUsage
+    case chat
+    case completions
+    case claudePool
+    case claudePoolWeekly
     case extraUsage
     case credits
 
@@ -77,10 +184,18 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .session: "Session"
         case .weekly: "Weekly"
+        case .daily: "Daily"
         case .sonnet: "Sonnet"
         case .fable: "Fable"
         case .spark: "Spark"
         case .sparkWeekly: "Spark Weekly"
+        case .totalUsage: "Total Usage"
+        case .autoUsage: "Auto Usage"
+        case .apiUsage: "API Usage"
+        case .chat: "Chat"
+        case .completions: "Completions"
+        case .claudePool: "Claude"
+        case .claudePoolWeekly: "Claude Weekly"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
         }
@@ -90,10 +205,18 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .session: "clock"
         case .weekly: "calendar"
+        case .daily: "sun.max"
         case .sonnet: "waveform"
         case .fable: "book.closed"
         case .spark: "sparkles"
         case .sparkWeekly: "calendar.badge.clock"
+        case .totalUsage: "gauge.with.dots.needle.50percent"
+        case .autoUsage: "wand.and.sparkles"
+        case .apiUsage: "terminal"
+        case .chat: "bubble.left.and.bubble.right"
+        case .completions: "text.badge.checkmark"
+        case .claudePool: "brain"
+        case .claudePoolWeekly: "calendar.badge.clock"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
         }
@@ -103,10 +226,18 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .session: "S"
         case .weekly: "W"
+        case .daily: "D"
         case .sonnet: "So"
         case .fable: "F"
         case .spark: "Sp"
         case .sparkWeekly: "SpW"
+        case .totalUsage: "T"
+        case .autoUsage: "A"
+        case .apiUsage: "API"
+        case .chat: "Ch"
+        case .completions: "Co"
+        case .claudePool: "Cl"
+        case .claudePoolWeekly: "ClW"
         case .extraUsage: "E"
         case .credits: "C"
         }
@@ -116,11 +247,20 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .session: .session
         case .weekly: .weekly
+        case .daily: .daily
         case .sonnet: .sonnet
         case .fable: .fable
         case .spark: .sparkSession
         case .sparkWeekly: .sparkWeekly
-        case .extraUsage, .credits: nil
+        case .totalUsage: .totalUsage
+        case .autoUsage: .autoUsage
+        case .apiUsage: .apiUsage
+        case .chat: .chat
+        case .completions: .completions
+        case .claudePool: .claudePool
+        case .claudePoolWeekly: .claudePoolWeekly
+        case .credits: .credits
+        case .extraUsage: nil
         }
     }
 }
@@ -149,7 +289,9 @@ struct ProviderDescriptor: Identifiable, Sendable {
     let id: ProviderID
     let displayName: String
     let iconAssetName: String
-    let executableName: String
+    let executableNames: [String]
+    let installationIndicators: [String]
+    let defaultMenuBarMetric: MenuBarMetricID
 }
 
 enum ProviderCatalog {

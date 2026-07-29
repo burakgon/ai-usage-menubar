@@ -294,6 +294,145 @@ final class MapperTests: XCTestCase {
         XCTAssertNotNil(ProviderParsing.date("2027-01-15T12:00:00+03:00"))
     }
 
+    func testCursorMapsTotalAutoAPIAndPlan() throws {
+        let snapshot = try CursorUsageMapper.map(
+            usageResponse: httpResponse(json: """
+            {
+              "enabled": true,
+              "billingCycleEnd": 1800100000000,
+              "planUsage": {
+                "limit": 2000,
+                "totalSpend": 500,
+                "autoPercentUsed": 40,
+                "apiPercentUsed": 12
+              }
+            }
+            """),
+            planResponse: httpResponse(json: """
+            {"planInfo":{"planName":"Pro"}}
+            """),
+            now: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        XCTAssertEqual(snapshot.provider, .cursor)
+        XCTAssertEqual(snapshot.planName, "Pro")
+        XCTAssertEqual(
+            snapshot.windows.map(\.kind),
+            [.totalUsage, .autoUsage, .apiUsage]
+        )
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 40, 12])
+        XCTAssertEqual(
+            snapshot.windows.first?.resetsAt,
+            Date(timeIntervalSince1970: 1_800_100_000)
+        )
+    }
+
+    func testCopilotConvertsRemainingQuotaToUsed() throws {
+        let snapshot = try CopilotUsageMapper.map(
+            response: httpResponse(json: """
+            {
+              "copilot_plan": "individual_pro",
+              "quota_reset_date": "2027-01-15T00:00:00Z",
+              "quota_snapshots": {
+                "premium_interactions": {
+                  "entitlement": 300,
+                  "remaining": 225,
+                  "percent_remaining": 75
+                },
+                "chat": {
+                  "entitlement": 100,
+                  "remaining": 80
+                }
+              }
+            }
+            """),
+            now: Date()
+        )
+
+        XCTAssertEqual(snapshot.provider, .copilot)
+        XCTAssertEqual(snapshot.planName, "Individual Pro")
+        XCTAssertEqual(snapshot.windows.map(\.kind), [.credits, .chat])
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 20])
+    }
+
+    func testDevinMapsDailyAndWeeklyRemainingQuota() throws {
+        let snapshot = try DevinUsageMapper.map(
+            response: httpResponse(json: """
+            {
+              "userStatus": {
+                "planStatus": {
+                  "dailyQuotaRemainingPercent": 80,
+                  "weeklyQuotaRemainingPercent": 35,
+                  "dailyQuotaResetAtUnix": 1800003600,
+                  "weeklyQuotaResetAtUnix": 1800604800,
+                  "planInfo": {"planName": "Teams"}
+                }
+              }
+            }
+            """),
+            now: Date()
+        )
+
+        XCTAssertEqual(snapshot.provider, .devin)
+        XCTAssertEqual(snapshot.planName, "Teams")
+        XCTAssertEqual(snapshot.windows.map(\.kind), [.daily, .weekly])
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [20, 65])
+    }
+
+    func testGrokMapsWeeklyPoolAndPlan() throws {
+        let snapshot = try GrokUsageMapper.map(
+            response: httpResponse(json: """
+            {
+              "config": {
+                "creditUsagePercent": 48,
+                "currentPeriod": {
+                  "type": "USAGE_PERIOD_TYPE_WEEKLY",
+                  "end": "2027-01-15T00:00:00Z"
+                }
+              }
+            }
+            """),
+            planResponse: httpResponse(json: """
+            {"subscription_tier_display":"SuperGrok"}
+            """),
+            now: Date()
+        )
+
+        XCTAssertEqual(snapshot.provider, .grok)
+        XCTAssertEqual(snapshot.planName, "SuperGrok")
+        XCTAssertEqual(snapshot.windows.map(\.kind), [.weekly])
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [48])
+    }
+
+    func testAntigravityMapsAllAuthoritativeQuotaPools() throws {
+        let snapshot = try XCTUnwrap(AntigravityUsageMapper.summary(
+            Data("""
+            {
+              "groups": [
+                {"buckets": [
+                  {"bucketId":"gemini-5h","remainingFraction":0.9},
+                  {"bucketId":"gemini-weekly","remainingFraction":0.6},
+                  {"bucketId":"3p-5h","remainingFraction":0.25},
+                  {"bucketId":"3p-weekly","remainingFraction":0.1}
+                ]}
+              ]
+            }
+            """.utf8),
+            planName: "Pro",
+            now: Date()
+        ))
+
+        XCTAssertEqual(snapshot.provider, .antigravity)
+        XCTAssertEqual(
+            snapshot.windows.map(\.kind),
+            [.session, .weekly, .claudePool, .claudePoolWeekly]
+        )
+        XCTAssertEqual(
+            snapshot.windows.map(\.usedPercent),
+            [10, 40, 75, 90]
+        )
+    }
+
     private func claudeOAuth() -> ClaudeOAuth {
         ClaudeOAuth(
             accessToken: "token",
