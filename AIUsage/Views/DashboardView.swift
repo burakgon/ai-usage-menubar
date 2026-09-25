@@ -12,16 +12,16 @@ struct DashboardView: View {
     var openSettings: @MainActor () -> Void = {}
 
     var body: some View {
-        GlassEffectContainer(spacing: 10) {
-            DashboardContentView(
-                store: store,
-                usageDisplayMode: $usageDisplayMode
-            )
-                .safeAreaBar(edge: .bottom, spacing: 0) {
-                    footer
-                }
-        }
+        DashboardContentView(
+            store: store,
+            usageDisplayMode: $usageDisplayMode,
+            openSettings: openSettings
+        )
         .frame(width: 392)
+        .background {
+            LiquidGlassPanelBackground()
+        }
+        .preferredColorScheme(.dark)
         .onAppear {
             store.setRefreshInterval(refreshInterval)
             store.start()
@@ -31,128 +31,124 @@ struct DashboardView: View {
             store.setRefreshInterval(interval)
         }
     }
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: freshnessSymbol)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(freshnessTint)
-
-                Group {
-                    if let updated = store.lastSuccessfulRefreshAt {
-                        HStack(spacing: 3) {
-                            Text("Updated")
-                            Text(updated, style: .relative)
-                        }
-                    } else if store.lastAttemptAt != nil {
-                        Text("Not updated")
-                    } else {
-                        Text("Waiting to refresh")
-                    }
-                }
-            }
-            .font(.caption.weight(.medium))
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-
-            Spacer()
-
-            if let version = availableUpdateVersion {
-                Button(action: checkForUpdates) {
-                    Label("Update", systemImage: "arrow.down.circle.fill")
-                }
-                .buttonStyle(.glassProminent)
-                .tint(UsagePalette.accent)
-                .controlSize(.small)
-                .disabled(isCheckingForUpdates)
-                .help("Update AI Usage to \(version)")
-            }
-
-            HStack(spacing: 0) {
-                Button {
-                    store.refreshNow()
-                } label: {
-                    RefreshButtonLabel(isRefreshing: isRefreshing)
-                }
-                .help(isRefreshing ? "Refreshing usage" : "Refresh now")
-                .disabled(isRefreshing)
-
-                Button(action: openSettings) {
-                    SettingsButtonLabel()
-                }
-                .help("Settings")
-                .accessibilityLabel("Settings")
-                .accessibilityHint("Shows settings in the menu bar panel")
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular, in: .capsule)
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 16))
-        .padding(.horizontal, 10)
-        .padding(.top, 4)
-        .padding(.bottom, 7)
-    }
-
-    private var freshnessSymbol: String {
-        store.lastSuccessfulRefreshAt == nil ? "clock" : "checkmark.circle.fill"
-    }
-
-    private var freshnessTint: Color {
-        store.lastSuccessfulRefreshAt == nil ? .secondary : UsagePalette.success
-    }
-
-    private var isRefreshing: Bool {
-        store.states.values.contains(where: \.isRefreshing)
-    }
 }
 
-struct SettingsButtonLabel: View {
+/// A header glyph: an icon on its own, without a separate material surface.
+struct HeaderGlyphButton: View {
+    let asset: String
+    let help: String
+    let accessibilityLabel: String
+    var isBusy = false
+    let action: @MainActor () -> Void
+
     var body: some View {
-        Image(systemName: "gearshape")
-            .font(.system(size: RefreshButtonLabel.symbolSize, weight: .medium))
-            .frame(width: RefreshButtonLabel.size, height: RefreshButtonLabel.size)
-            .contentShape(Circle())
+        Button(action: action) {
+            ZStack {
+                if isBusy {
+                    ProgressView()
+                        .controlSize(.mini)
+                } else {
+                    Image(asset)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(UsagePalette.Morado.glyph)
+                }
+            }
+            .frame(width: 18, height: 18)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(accessibilityLabel)
     }
 }
 
-struct RefreshButtonLabel: View {
-    static let size: CGFloat = 28
-    static let symbolSize: CGFloat = 14
-
-    let isRefreshing: Bool
+private struct LiquidGlassPanelBackground: View {
+    @Environment(\.accessibilityReduceTransparency)
+    private var reduceTransparency
 
     var body: some View {
         ZStack {
-            if isRefreshing {
-                ProgressView()
-                    .controlSize(.mini)
-            } else {
-                Image(systemName: "arrow.clockwise")
+            if !reduceTransparency {
+                Color.clear
+                    .glassEffect(
+                        .regular,
+                        in: .rect(cornerRadius: 18)
+                    )
             }
+
+            LinearGradient(
+                colors: reduceTransparency
+                    ? [
+                        UsagePalette.Morado.panel,
+                        UsagePalette.Morado.panelDeep,
+                        UsagePalette.Morado.panelViolet
+                    ]
+                    : [
+                        UsagePalette.Morado.panel.opacity(0.46),
+                        UsagePalette.Morado.panelDeep.opacity(0.38),
+                        UsagePalette.Morado.panelViolet.opacity(0.44)
+                    ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
         }
-        .font(.system(size: Self.symbolSize, weight: .medium))
-        .frame(width: Self.size, height: Self.size)
-        .contentShape(Circle())
-        .accessibilityLabel(isRefreshing ? "Refreshing usage" : "Refresh now")
+        .clipShape(.rect(cornerRadius: 18))
+        .accessibilityHidden(true)
     }
 }
 
 struct DashboardContentView: View {
     @Bindable var store: UsageStore
     @Binding var usageDisplayMode: UsageDisplayMode
+    var openSettings: @MainActor () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             header
+
+            Divider()
+                .overlay(UsagePalette.Morado.line)
+
             providerRows
         }
-        .padding([.horizontal, .top], 10)
-        .padding(.bottom, 6)
+    }
+
+    private var header: some View {
+        HStack(spacing: 0) {
+            Text("AI Usage")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(UsagePalette.Morado.ink)
+
+            Spacer(minLength: 8)
+
+            HStack(spacing: 10) {
+                HeaderGlyphButton(
+                    asset: "IconRefresh",
+                    help: isRefreshing ? "Refreshing usage" : "Refresh now",
+                    accessibilityLabel: isRefreshing
+                        ? "Refreshing usage"
+                        : "Refresh now",
+                    isBusy: isRefreshing
+                ) {
+                    store.refreshNow()
+                }
+                .disabled(isRefreshing)
+
+                HeaderGlyphButton(
+                    asset: "IconSettings",
+                    help: "Settings",
+                    accessibilityLabel: "Settings",
+                    action: openSettings
+                )
+            }
+        }
+        .padding(.leading, 17)
+        .padding(.trailing, 15)
+        .padding(.top, 15)
+        .padding(.bottom, 13)
     }
 
     @ViewBuilder
@@ -161,7 +157,7 @@ struct DashboardContentView: View {
             ScrollView {
                 providerRowsContent
             }
-            .frame(maxHeight: 390)
+            .frame(maxHeight: 430)
             .scrollIndicators(.hidden)
         } else {
             providerRowsContent
@@ -169,13 +165,18 @@ struct DashboardContentView: View {
     }
 
     private var providerRowsContent: some View {
-        LazyVStack(spacing: 8) {
-            ForEach(visibleProviders) { provider in
+        LazyVStack(spacing: 0) {
+            ForEach(Array(visibleProviders.enumerated()), id: \.element) { index, provider in
                 if let state = store.states[provider] {
                     ProviderSectionView(
                         state: state,
                         displayMode: usageDisplayMode
                     )
+
+                    if index < visibleProviders.count - 1 {
+                        Divider()
+                            .overlay(UsagePalette.Morado.line)
+                    }
                 }
             }
         }
@@ -185,25 +186,7 @@ struct DashboardContentView: View {
         ProviderID.allCases.filter(store.isProviderVisibleInDashboard)
     }
 
-    private var header: some View {
-        HStack {
-            Text("AI Usage")
-                .font(.headline.weight(.semibold))
-            Spacer()
-            Picker("Numbers", selection: $usageDisplayMode) {
-                ForEach(UsageDisplayMode.allCases) { mode in
-                    Text(mode.title)
-                        .tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.small)
-            .frame(width: 112)
-            .accessibilityLabel("Usage numbers")
-            .accessibilityHint("Choose whether percentages show usage left or used")
-        }
-        .padding(.horizontal, 4)
-        .frame(height: 28)
+    private var isRefreshing: Bool {
+        store.states.values.contains(where: \.isRefreshing)
     }
 }

@@ -45,24 +45,41 @@ final class VisualSnapshotTests: XCTestCase {
         }
     }
 
-    func testRefreshFeedbackStaysInsideTheFooterButton() {
+    func testRefreshFeedbackStaysInsideTheHeaderGlyph() {
         let idleSize = measuredSize(
-            of: RefreshButtonLabel(isRefreshing: false),
+            of: HeaderGlyphButton(
+                asset: "IconRefresh",
+                help: "Refresh now",
+                accessibilityLabel: "Refresh now",
+                isBusy: false,
+                action: {}
+            ),
             width: 100
         )
         let refreshingSize = measuredSize(
-            of: RefreshButtonLabel(isRefreshing: true),
+            of: HeaderGlyphButton(
+                asset: "IconRefresh",
+                help: "Refreshing usage",
+                accessibilityLabel: "Refreshing usage",
+                isBusy: true,
+                action: {}
+            ),
             width: 100
         )
         let settingsSize = measuredSize(
-            of: SettingsButtonLabel(),
+            of: HeaderGlyphButton(
+                asset: "IconSettings",
+                help: "Settings",
+                accessibilityLabel: "Settings",
+                action: {}
+            ),
             width: 100
         )
 
         XCTAssertEqual(idleSize, refreshingSize)
         XCTAssertEqual(idleSize, settingsSize)
-        XCTAssertEqual(idleSize.width, RefreshButtonLabel.size, accuracy: 0.5)
-        XCTAssertEqual(idleSize.height, RefreshButtonLabel.size, accuracy: 0.5)
+        XCTAssertEqual(idleSize.width, 18, accuracy: 0.5)
+        XCTAssertEqual(idleSize.height, 18, accuracy: 0.5)
     }
 
     func testMenuBarLabelKeepsUsageMeaningOutOfVisibleText() {
@@ -182,8 +199,11 @@ final class VisualSnapshotTests: XCTestCase {
         let size = measuredSize(of: ProviderSectionView(state: state), width: panelWidth - 20)
 
         XCTAssertEqual(size.width, panelWidth - 20, accuracy: 0.5)
-        XCTAssertLessThan(size.height, 200)
-        XCTAssertGreaterThan(size.height, 130)
+        // One single-line meter per window, so three windows stay well under
+        // the old two-column grid's footprint while still rendering a header
+        // plus three rows.
+        XCTAssertLessThan(size.height, 160, "height was \(size.height)")
+        XCTAssertGreaterThan(size.height, 90, "height was \(size.height)")
     }
 
     func testBillingUsagePresentationKeepsProviderSemanticsDistinct() {
