@@ -169,13 +169,18 @@ struct DashboardContentView: View {
     }
 
     private var providerRowsContent: some View {
-        LazyVStack(spacing: 8) {
-            ForEach(visibleProviders) { provider in
-                if let state = store.states[provider] {
-                    ProviderSectionView(
-                        state: state,
-                        displayMode: usageDisplayMode
-                    )
+        // Glass cards need their own container inside the scrolling content and
+        // an eager stack, otherwise they render outside the scroll clip and
+        // overlap while scrolling.
+        GlassEffectContainer(spacing: 8) {
+            VStack(spacing: 8) {
+                ForEach(visibleProviders) { provider in
+                    if let state = store.states[provider] {
+                        ProviderSectionView(
+                            state: state,
+                            displayMode: usageDisplayMode
+                        )
+                    }
                 }
             }
         }
