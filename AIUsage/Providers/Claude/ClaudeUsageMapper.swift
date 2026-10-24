@@ -20,13 +20,15 @@ enum ClaudeUsageMapper {
         appendWindow(body["seven_day_sonnet"], kind: .sonnet, to: &windows)
         appendFable(body["limits"], to: &windows)
 
-        return ProviderSnapshot(
+        var snapshot = ProviderSnapshot(
             provider: .claude,
             planName: planName(credentials),
             windows: windows,
             billingUsage: billingUsage(body["extra_usage"]),
             fetchedAt: now
         )
+        snapshot.resetCredits = ResetCredits.claude(body["cedar_ember"])
+        return snapshot
     }
 
     static func planName(_ credentials: ClaudeOAuth) -> String? {

@@ -49,13 +49,15 @@ enum CodexUsageMapper {
             }
         }
 
-        return ProviderSnapshot(
+        var snapshot = ProviderSnapshot(
             provider: .codex,
             planName: planName(body["plan_type"]),
             windows: windows,
             billingUsage: billingUsage(response: response, body: body),
             fetchedAt: now
         )
+        snapshot.resetCredits = ResetCredits.codex(body["rate_limit_reset_credits"])
+        return snapshot
     }
 
     static func planName(_ value: Any?) -> String? {

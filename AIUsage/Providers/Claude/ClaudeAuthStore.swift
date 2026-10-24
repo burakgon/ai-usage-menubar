@@ -53,7 +53,7 @@ struct ClaudeCredentialGeneration: Equatable, Sendable {
 }
 
 struct ClaudeAuthStore: Sendable {
-    static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+    static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage?cedar_ember=1")!
     static let refreshURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
     static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let requiredUsageScope = "user:profile"

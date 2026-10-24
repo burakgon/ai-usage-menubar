@@ -11,6 +11,8 @@ struct CodexUsageClient: Sendable {
     static let refreshURL = URL(string: "https://auth.openai.com/oauth/token")!
     static let usageURL = URL(string: "https://chatgpt.com/backend-api/wham/usage")!
 
+    static let resetCreditsURL = URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!
+
     let http: HTTPClient
 
     init(http: HTTPClient = URLSessionHTTPClient()) {
@@ -18,6 +20,14 @@ struct CodexUsageClient: Sendable {
     }
 
     func fetchUsage(accessToken: String, accountID: String?) async throws -> HTTPResponse {
+        try await fetch(url: Self.usageURL, accessToken: accessToken, accountID: accountID)
+    }
+
+    func fetchResetCredits(accessToken: String, accountID: String?) async throws -> HTTPResponse {
+        try await fetch(url: Self.resetCreditsURL, accessToken: accessToken, accountID: accountID)
+    }
+
+    private func fetch(url: URL, accessToken: String, accountID: String?) async throws -> HTTPResponse {
         var headers = [
             "Authorization": "Bearer \(accessToken)",
             "Accept": "application/json",
@@ -28,7 +38,7 @@ struct CodexUsageClient: Sendable {
         }
         return try await http.send(HTTPRequest(
             method: .get,
-            url: Self.usageURL,
+            url: url,
             headers: headers
         ))
     }

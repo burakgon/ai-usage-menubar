@@ -9,6 +9,11 @@ struct MenuBarPresentation: Equatable, Sendable {
         let provider = reading.provider.displayName
         let subject = "\(provider) \(reading.metric.title)"
         switch reading.value {
+        case .resets(let credits):
+            let presentation = ResetCreditsPresentation(credits: credits)
+            valueText = presentation.compactText
+            accessibilityLabel = "\(provider) \(presentation.detailText)" +
+                (reading.isStale ? ", stale" : "")
         case .percentage(let percent):
             valueText = "\(Int(percent.rounded()))%"
             let value =

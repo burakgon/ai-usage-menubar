@@ -17,7 +17,7 @@ struct ProviderSectionView: View {
         VStack(alignment: .leading, spacing: 0) {
             providerHeader
             if let snapshot = state.snapshot,
-               !snapshot.windows.isEmpty || snapshot.billingUsage != nil {
+               !snapshot.windows.isEmpty || snapshot.billingUsage != nil || snapshot.resetCredits != nil {
                 if !snapshot.windows.isEmpty {
                     QuotaGrid(
                         windows: snapshot.windows,
@@ -25,6 +25,9 @@ struct ProviderSectionView: View {
                     )
                     .padding(.horizontal, 10)
                     .padding(.bottom, 6)
+                }
+                if state.provider == .claude || state.provider == .codex {
+                    ResetCreditsView(credits: snapshot.resetCredits)
                 }
                 if let billingUsage = snapshot.billingUsage {
                     BillingUsageRow(
@@ -49,11 +52,7 @@ struct ProviderSectionView: View {
             }
 
             if state.isStale, let failure = state.failure {
-                Label(failure.message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(UsagePalette.warning)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .help(failure.message)
+                FailureRow(failure: failure)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 12)
             }
@@ -402,11 +401,13 @@ private struct FailureRow: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let retryAt = failure.retryAt {
-                    HStack(spacing: 3) {
-                        Text("Retry")
-                        Text(retryAt, style: .relative)
+                    Text("Automatic retry after \(retryAt.formatted(.dateTime.month(.abbreviated).day().hour().minute().timeZone()))")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if failure.kind == .rateLimited {
+                        Text("Refresh to try again now.")
+                            .foregroundStyle(.secondary)
                     }
-                    .foregroundStyle(.tertiary)
                 }
             }
         }

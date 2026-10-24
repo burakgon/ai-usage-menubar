@@ -51,6 +51,9 @@ final class ProviderTests: XCTestCase {
             ClaudeAuthStore.refreshURL,
             ClaudeAuthStore.usageURL
         ])
+        XCTAssertEqual(requests[0].headers["User-Agent"], "claude-cli/2.1.301 (external, cli)")
+        XCTAssertEqual(URLComponents(url: requests[0].url, resolvingAgainstBaseURL: false)?.queryItems,
+                       [URLQueryItem(name: "cedar_ember", value: "1")])
         let saved = try XCTUnwrap(keychain.currentValue(service: "Claude Code-credentials"))
         let savedDocument = try XCTUnwrap(
             ProviderParsing.decodeWithHexFallback(saved, as: ClaudeCredentialsDocument.self)
@@ -107,6 +110,49 @@ final class ProviderTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
+    @MainActor
+    func testManualRefreshBypassesClaudeCooldownAndAutomaticRefreshKeepsNewBackoff() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let date = FixedDateProvider(value: now)
+        let oauth = ClaudeOAuth(
+            accessToken: "fixture-access", refreshToken: nil,
+            expiresAt: (now.timeIntervalSince1970 + 3600) * 1000,
+            subscriptionType: nil, rateLimitTier: nil, scopes: ["user:profile"]
+        )
+        let http = MockHTTPClient([
+            httpResponse(429, headers: ["Retry-After": "120"]),
+            httpResponse(429, headers: ["Retry-After": "600"]),
+            httpResponse(json: "{\"five_hour\":{\"utilization\":31}}")
+        ])
+        let provider = ClaudeProvider(authStore: ClaudeAuthStore(
+            environment: MockEnvironment(), files: MemoryFiles(),
+            keychain: MemoryKeychain(currentUser: [
+                "Claude Code-credentials": encodedJSON(ClaudeCredentialsDocument(claudeAiOauth: oauth))
+            ]), dateProvider: date
+        ), client: ClaudeUsageClient(http: http), dateProvider: date)
+        let store = UsageStore(
+            providers: [provider],
+            availabilityChecker: FixedProviderAvailabilityChecker(installed: [.claude]),
+            trackedProviderIDs: [.claude]
+        )
+        defer { store.stop() }
+        await store.refresh()
+        XCTAssertEqual(store.states[.claude]?.failure?.message, "Claude usage lookup throttled.")
+        store.refreshNow()
+        // Exercise the actual Refresh-button path without advancing the cooldown clock.
+        for _ in 0..<1000 {
+            if store.states[.claude]?.failure?.retryAt == now.addingTimeInterval(600) { break }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        XCTAssertEqual(store.states[.claude]?.failure?.retryAt, now.addingTimeInterval(600))
+        await store.refresh()
+        let requestsAfterAutomatic = await http.capturedRequests()
+        XCTAssertEqual(requestsAfterAutomatic.count, 2)
+        await store.refresh(ignoringBackoff: true)
+        XCTAssertEqual(store.states[.claude]?.snapshot?.sessionWindow?.usedPercent, 31)
+        XCTAssertNil(store.states[.claude]?.failure)
+    }
+
     func testCodexProactiveRefreshUsesExactSourceAndFormEncoding() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let auth = CodexAuth(
@@ -161,7 +207,8 @@ final class ProviderTests: XCTestCase {
         let requests = await http.capturedRequests()
         XCTAssertEqual(requests.map(\.url), [
             CodexUsageClient.refreshURL,
-            CodexUsageClient.usageURL
+            CodexUsageClient.usageURL,
+            CodexUsageClient.resetCreditsURL
         ])
         let form = String(data: requests[0].body ?? Data(), encoding: .utf8)
         XCTAssertTrue(form?.contains("refresh_token=refresh%20%2B%26") == true)

@@ -116,10 +116,13 @@ final class UsageStore {
         cadenceTask?.cancel()
         cadenceTask = nil
         cancelRefresh()
-        cadenceTask = makeCadenceTask(refreshImmediately: true)
+        cadenceTask = makeCadenceTask(refreshImmediately: true, ignoringInitialBackoff: true)
     }
 
-    func refresh(providerIDs requestedProviderIDs: Set<ProviderID>? = nil) async {
+    func refresh(
+        providerIDs requestedProviderIDs: Set<ProviderID>? = nil,
+        ignoringBackoff: Bool = false
+    ) async {
         if let refreshTask {
             await refreshTask.value
             return
@@ -156,7 +159,7 @@ final class UsageStore {
                         do {
                             return FetchResult(
                                 provider: provider.id,
-                                result: .success(try await provider.fetch())
+                                result: .success(try await provider.fetch(ignoringBackoff: ignoringBackoff))
                             )
                         } catch let failure as ProviderFailure {
                             return FetchResult(
@@ -331,12 +334,16 @@ final class UsageStore {
 
     private func makeCadenceTask(
         refreshImmediately: Bool,
-        initialProviderIDs: Set<ProviderID>? = nil
+        initialProviderIDs: Set<ProviderID>? = nil,
+        ignoringInitialBackoff: Bool = false
     ) -> Task<Void, Never> {
         let duration = refreshInterval.duration
         return Task { [weak self, duration] in
             if refreshImmediately {
-                await self?.refresh(providerIDs: initialProviderIDs)
+                await self?.refresh(
+                    providerIDs: initialProviderIDs,
+                    ignoringBackoff: ignoringInitialBackoff
+                )
             }
             while !Task.isCancelled {
                 do {

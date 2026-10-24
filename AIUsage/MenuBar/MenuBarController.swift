@@ -262,6 +262,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
     private let statusBar: NSStatusBar
     private let application: any ApplicationActivating
 
+    private var expirationTimer: Timer?
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var panelRoute: MenuBarPanelRoute = .dashboard
@@ -303,12 +304,23 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         }
 
         trackMenuBarState()
+        expirationTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.updateStatusItem(with: self.store.menuBarProviderReadings(
+                    for: self.preferences.menuBarProviderConfigurations,
+                    displayMode: self.preferences.usageDisplayMode
+                ))
+            }
+        }
         store.start()
     }
 
     func stop() {
         guard isStarted else { return }
         isStarted = false
+        expirationTimer?.invalidate()
+        expirationTimer = nil
         store.stop()
         popover?.performClose(nil)
         releasePanel()

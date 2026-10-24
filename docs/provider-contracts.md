@@ -29,10 +29,10 @@ scope metadata is treated as unknown and allowed.
 
 Usage request:
 
-- `GET https://api.anthropic.com/api/oauth/usage`
+- `GET https://api.anthropic.com/api/oauth/usage?cedar_ember=1`
 - `Authorization: Bearer <access token>`
 - `anthropic-beta: oauth-2025-04-20`
-- `User-Agent: claude-code/2.1.69`
+- `User-Agent: claude-cli/2.1.301 (external, cli)`
 
 Mapped fields:
 
@@ -57,8 +57,10 @@ Refresh request:
 The access token is refreshed within five minutes of `expiresAt` (epoch
 milliseconds). A usage `401` or `403` causes at most one refresh and one retry.
 `invalid_grant` means the session expired. A `429` honors `Retry-After`
-(seconds or HTTP date) and otherwise starts a five-minute cooldown, including
-manual refreshes.
+(seconds or HTTP date) and otherwise starts a five-minute cooldown. Automatic
+refreshes honor this cooldown; an explicit manual Refresh bypasses it for one
+attempt. A new 429 sets a new cooldown. The panel labels this as a usage lookup
+throttle and shows the earliest automatic retry time, including with stale data.
 
 The display plan is title-cased `subscriptionType`, plus an `Nx` fragment
 extracted from `rateLimitTier`.
@@ -148,3 +150,30 @@ login.
 Temporary network failures, `429`, server errors, and invalid response shapes
 preserve the last-good in-memory snapshot and mark it stale. Authentication and
 storage failures clear that provider's snapshot.
+
+## Extra reset inventory
+
+Claude's usage request opts into `cedar_ember`. An eligible block supplies
+`grants[]` with `id`, `resets_left`, `ends_at`, `paused`, and `usable_now`.
+`no_grant` is a known zero balance; absent, malformed, or otherwise ineligible
+blocks are unavailable, not zero. Held resets are counted even when temporarily
+not redeemable. The CLI-shaped User-Agent is required by this undocumented
+contract: the previous `claude-code/2.1.69` header returns `surface` ineligibility.
+
+Codex usage may supply `rate_limit_reset_credits.available_count`. After a
+successful usage read, the app also requests
+`GET https://chatgpt.com/backend-api/wham/rate-limit-reset-credits` with the same
+bearer and account headers. It returns `available_count` and `credits[]` with
+`id`, `status`, and `expires_at` (ISO-8601, including fractional seconds).
+Only `available` entries are displayed. A failed optional details request keeps
+the current usage summary count, when present, and marks expiration details
+unavailable. It does not fail quota polling or trigger a credential refresh.
+
+Explicit null expiration means no expiration; malformed or missing expiration
+must not be represented as an unlimited lifetime. Detail lists may be partial,
+so the provider count is authoritative and omitted details are called out.
+Known expired grants are removed locally from the count and list. The menu bar
+refreshes its presentation every minute without making another network request.
+Full expiration dates include the user's local time and time zone. These are
+redemption deadlines, separate from the quota windows' scheduled refresh times.
+No reset redemption endpoint is called.

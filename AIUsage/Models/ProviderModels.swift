@@ -176,6 +176,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case claudePool
     case claudePoolWeekly
     case extraUsage
+    case extraResets
     case credits
 
     var id: Self { self }
@@ -196,6 +197,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "Completions"
         case .claudePool: "Claude"
         case .claudePoolWeekly: "Claude Weekly"
+        case .extraResets: "Extra resets"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
         }
@@ -217,6 +219,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "text.badge.checkmark"
         case .claudePool: "brain"
         case .claudePoolWeekly: "calendar.badge.clock"
+        case .extraResets: "arrow.counterclockwise"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
         }
@@ -238,6 +241,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "Co"
         case .claudePool: "Cl"
         case .claudePoolWeekly: "ClW"
+        case .extraResets: "R"
         case .extraUsage: "E"
         case .credits: "C"
         }
@@ -260,7 +264,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePool: .claudePool
         case .claudePoolWeekly: .claudePoolWeekly
         case .credits: .credits
-        case .extraUsage: nil
+        case .extraUsage, .extraResets: nil
         }
     }
 }
@@ -354,6 +358,7 @@ enum BillingUsage: Equatable, Sendable {
 }
 
 enum MenuBarReadingValue: Equatable, Sendable {
+    case resets(ResetCredits?)
     case percentage(Double)
     case money(amount: Double, currencyCode: String)
     case credits(remaining: Int, usdValue: Double)
@@ -365,6 +370,7 @@ struct ProviderSnapshot: Equatable, Sendable {
     let windows: [QuotaWindow]
     let billingUsage: BillingUsage?
     let fetchedAt: Date
+    var resetCredits: ResetCredits? = nil
 
     init(
         provider: ProviderID,
@@ -399,6 +405,9 @@ struct ProviderSnapshot: Equatable, Sendable {
                 metric: billingUsage.menuBarMetric
             ))
         }
+        if resetCredits != nil {
+            items.append(MenuBarItemID(provider: provider, metric: .extraResets))
+        }
         var seen: Set<MenuBarItemID> = []
         return items.filter { seen.insert($0).inserted }
     }
@@ -407,6 +416,9 @@ struct ProviderSnapshot: Equatable, Sendable {
         for metric: MenuBarMetricID,
         displayMode: UsageDisplayMode
     ) -> MenuBarReadingValue? {
+        if metric == .extraResets, provider == .claude || provider == .codex {
+            return .resets(resetCredits)
+        }
         if let window = window(for: metric) {
             return .percentage(
                 displayMode.displayedPercent(from: window.usedPercent)
@@ -591,6 +603,13 @@ enum RefreshIntervalOption: String, CaseIterable, Identifiable, Sendable {
 protocol UsageProvider: Sendable {
     var id: ProviderID { get }
     func fetch() async throws -> ProviderSnapshot
+    func fetch(ignoringBackoff: Bool) async throws -> ProviderSnapshot
+}
+
+extension UsageProvider {
+    func fetch(ignoringBackoff: Bool) async throws -> ProviderSnapshot {
+        try await fetch()
+    }
 }
 
 protocol DateProviding: Sendable {

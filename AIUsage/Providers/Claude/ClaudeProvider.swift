@@ -21,10 +21,17 @@ actor ClaudeProvider: UsageProvider {
     }
 
     func fetch() async throws -> ProviderSnapshot {
-        try await fetch(credentialReloadsRemaining: 1)
+        try await fetch(ignoringBackoff: false)
     }
 
-    private func fetch(credentialReloadsRemaining: Int) async throws -> ProviderSnapshot {
+    func fetch(ignoringBackoff: Bool) async throws -> ProviderSnapshot {
+        try await fetch(credentialReloadsRemaining: 1, ignoringBackoff: ignoringBackoff)
+    }
+
+    private func fetch(
+        credentialReloadsRemaining: Int,
+        ignoringBackoff: Bool
+    ) async throws -> ProviderSnapshot {
         let candidates = authStore.loadCandidates().filter(\.hasUsableAccessToken)
         guard !candidates.isEmpty else {
             throw ProviderFailure(
@@ -38,9 +45,12 @@ actor ClaudeProvider: UsageProvider {
 
         for candidate in candidates {
             do {
-                return try await probe(candidate, generation: &generation)
+                return try await probe(candidate, generation: &generation, ignoringBackoff: ignoringBackoff)
             } catch ClaudeProviderError.credentialsChanged where credentialReloadsRemaining > 0 {
-                return try await fetch(credentialReloadsRemaining: credentialReloadsRemaining - 1)
+                return try await fetch(
+                    credentialReloadsRemaining: credentialReloadsRemaining - 1,
+                    ignoringBackoff: ignoringBackoff
+                )
             } catch let failure as ProviderFailure where failure.kind == .authentication {
                 lastAuthenticationFailure = failure
                 continue
@@ -55,7 +65,8 @@ actor ClaudeProvider: UsageProvider {
 
     private func probe(
         _ initialState: ClaudeCredentialState,
-        generation: inout ClaudeCredentialGeneration
+        generation: inout ClaudeCredentialGeneration,
+        ignoringBackoff: Bool
     ) async throws -> ProviderSnapshot {
         guard authStore.hasUsageScope(initialState.oauth) else {
             throw ProviderFailure(
@@ -67,10 +78,10 @@ actor ClaudeProvider: UsageProvider {
         var state = initialState
         activateCooldown(for: state.oauth)
         let now = dateProvider.now()
-        if let until = rateLimitedUntil, now < until {
+        if !ignoringBackoff, let until = rateLimitedUntil, now < until {
             throw ProviderFailure(
                 .rateLimited,
-                "Claude is rate limited. Try again later.",
+                "Claude usage lookup throttled.",
                 retryAt: until
             )
         }
@@ -123,7 +134,7 @@ actor ClaudeProvider: UsageProvider {
             rateLimitedUntil = retryAt
             throw ProviderFailure(
                 .rateLimited,
-                "Claude is rate limited. Try again later.",
+                "Claude usage lookup throttled.",
                 retryAt: retryAt
             )
         }

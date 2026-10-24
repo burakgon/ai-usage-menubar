@@ -123,6 +123,17 @@ The exact researched contracts are documented in
 
 ## Menu bar behavior
 
+Claude Code and Codex also show **Extra resets**: the number of banked resets
+and each grant's expiration date, local time, and time zone in the panel.
+Select **Extra resets** under a provider in Settings to show its count and next
+known expiry date in the menu bar (for example, `↻2 · Nov 6`). Missing data is
+shown as unavailable, and expired grants are excluded. This is read-only;
+redeem resets in the provider's own app.
+
+If Claude throttles a usage lookup, the panel shows when automatic retries can
+resume. Manual **Refresh** tries immediately, even during that cooldown.
+
+
 Every provider can be shown or hidden independently. Under each provider,
 choose any metric it currently returns. A single metric shows only its value;
 multiple metrics use tiny labels to stay compact. **Weekly** is selected for

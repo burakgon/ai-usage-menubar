@@ -100,7 +100,17 @@ actor CodexProvider: UsageProvider {
             )
         }
 
-        return try CodexUsageMapper.map(response: response, now: dateProvider.now())
+        var snapshot = try CodexUsageMapper.map(response: response, now: dateProvider.now())
+        // Optional details must not discard valid quota data or trigger token rotation.
+        // Retain the current usage response's count if the details endpoint is unavailable.
+        if let details = try? await client.fetchResetCredits(
+            accessToken: accessToken, accountID: state.auth.tokens?.accountID
+        ), (200..<300).contains(details.statusCode),
+           let body = try? ProviderParsing.object(from: details.body),
+           let credits = ResetCredits.codex(body) {
+            snapshot.resetCredits = credits
+        }
+        return snapshot
     }
 
     private func refreshAccessToken(
