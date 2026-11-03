@@ -377,7 +377,7 @@ final class AppPreferences {
         return available + temporarilyUnavailable
     }
 
-    private static func defaultMenuBarItem(
+    static func defaultMenuBarItem(
         for provider: ProviderID,
         in availableItems: [MenuBarItemID]
     ) -> MenuBarItemID? {

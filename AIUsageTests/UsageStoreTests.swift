@@ -130,6 +130,41 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
+    func testProviderGroupFallsBackToDefaultMetricWhenSelectionIsMissing() async {
+        // Some Claude accounts have no five-hour window: the API returns
+        // `five_hour: null`, so a saved "session" selection yields nothing.
+        let claude = SequencedProvider(
+            id: .claude,
+            results: [.success(ProviderSnapshot(
+                provider: .claude,
+                planName: "Max",
+                windows: [
+                    QuotaWindow(kind: .weekly, usedPercent: 1, resetsAt: nil),
+                    QuotaWindow(kind: .fable, usedPercent: 0, resetsAt: nil)
+                ],
+                fetchedAt: Date()
+            ))]
+        )
+        let store = UsageStore(
+            providers: [claude],
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: [.claude]
+            )
+        )
+
+        await store.refresh()
+
+        let groups = store.menuBarProviderReadings(
+            for: [MenuBarProviderConfiguration(
+                provider: .claude,
+                metrics: [.session]
+            )]
+        )
+        XCTAssertEqual(groups.map(\.provider), [.claude])
+        XCTAssertEqual(groups[0].readings.map(\.metric), [.weekly])
+        XCTAssertEqual(groups[0].readings.map(\.value), [.percentage(1)])
+    }
+
     func testExplicitWeeklyMetricNeverFallsBackToSession() async {
         let codex = SequencedProvider(
             id: .codex,

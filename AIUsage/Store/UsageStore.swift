@@ -29,7 +29,7 @@ struct MenuBarProviderReadings: Equatable, Identifiable, Sendable {
     let readings: [MenuBarReading]
 
     var id: ProviderID { provider }
-    var showsMetricLabels: Bool { selectedMetrics.count > 1 }
+    var showsMetricLabels: Bool { readings.count > 1 }
 }
 
 @MainActor
@@ -260,13 +260,28 @@ final class UsageStore {
                     metric: $0
                 )
             }
+            var readings = menuBarReadings(
+                for: items,
+                displayMode: displayMode
+            )
+            // Selected metrics can vanish from the live snapshot (for
+            // example, Claude accounts without a five-hour window return
+            // `five_hour: null`). Show the provider's default metric rather
+            // than nothing, without touching the saved selection.
+            if readings.isEmpty,
+               let fallback = AppPreferences.defaultMenuBarItem(
+                   for: configuration.provider,
+                   in: availableMenuBarItems(for: configuration.provider)
+               ) {
+                readings = menuBarReadings(
+                    for: [fallback],
+                    displayMode: displayMode
+                )
+            }
             return MenuBarProviderReadings(
                 provider: configuration.provider,
                 selectedMetrics: configuration.metrics,
-                readings: menuBarReadings(
-                    for: items,
-                    displayMode: displayMode
-                )
+                readings: readings
             )
         }
     }

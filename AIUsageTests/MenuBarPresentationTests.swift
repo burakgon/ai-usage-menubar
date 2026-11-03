@@ -100,6 +100,38 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertNil(presentation.sharedSuffix)
     }
 
+    func testSingleReadingDropsMicroLabelEvenWhenMoreMetricsAreSelected() {
+        // A selected metric the provider no longer returns (e.g. a missing
+        // five-hour window) must not force a label onto the lone reading.
+        let group = MenuBarProviderReadings(
+            provider: .claude,
+            selectedMetrics: [.session, .weekly],
+            readings: [
+                MenuBarReading(
+                    provider: .claude,
+                    metric: .weekly,
+                    value: .percentage(97),
+                    displayMode: .remaining,
+                    isStale: false
+                )
+            ]
+        )
+
+        let presentation = MenuBarProviderPresentation(group: group)
+
+        XCTAssertEqual(
+            presentation.metrics,
+            [
+                MenuBarMetricPresentation(
+                    label: nil,
+                    valueText: "97%",
+                    showsStaleIndicator: false
+                )
+            ]
+        )
+        XCTAssertNil(presentation.sharedSuffix)
+    }
+
     func testMultipleSelectedMetricsUseMicroLabelsAndSharedPercent() {
         let group = MenuBarProviderReadings(
             provider: .claude,
@@ -135,36 +167,6 @@ final class MenuBarPresentationTests: XCTestCase {
                 MenuBarMetricPresentation(
                     label: "W",
                     valueText: "42",
-                    showsStaleIndicator: false
-                )
-            ]
-        )
-        XCTAssertEqual(presentation.sharedSuffix, "%")
-    }
-
-    func testMultipleSelectionsKeepLabelWhenOneReadingIsUnavailable() {
-        let group = MenuBarProviderReadings(
-            provider: .codex,
-            selectedMetrics: [.weekly, .spark],
-            readings: [
-                MenuBarReading(
-                    provider: .codex,
-                    metric: .spark,
-                    value: .percentage(28),
-                    displayMode: .used,
-                    isStale: false
-                )
-            ]
-        )
-
-        let presentation = MenuBarProviderPresentation(group: group)
-
-        XCTAssertEqual(
-            presentation.metrics,
-            [
-                MenuBarMetricPresentation(
-                    label: "Sp",
-                    valueText: "28",
                     showsStaleIndicator: false
                 )
             ]
