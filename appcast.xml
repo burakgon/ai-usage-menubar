@@ -6,6 +6,25 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.3.1</title>
+            <pubDate>Thu, 05 Nov 2026 15:38:30 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.3.1
+
+This release keeps the providers AI Usage starts tracking after an update.
+
+- Remember newly supported providers after a relaunch. Since 0.2.0, Cursor,
+  Antigravity, GitHub Copilot, Devin, and Grok could stop being tracked the
+  next time AI Usage opened, and 0.3.0 did the same to Z.ai.
+- Track them again once on installations where they were dropped. A provider
+  you turn off in Settings stays off.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.3.1/AI-Usage.dmg" length="4235642" type="application/octet-stream" sparkle:edSignature="ifpuk/HnWIYay722jEzosfUGDrDarVwUB78ha+nYCuHYOSM6vNr8qJ4h7W6vAYTxcOGX9KQnbEXd98OmDb+8BA=="/>
+        </item>
+        <item>
             <title>0.3.0</title>
             <pubDate>Thu, 05 Nov 2026 15:03:08 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -103,39 +122,9 @@ This release makes installing AI Usage seamless on macOS.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.9/AI-Usage.dmg" length="3901691" type="application/octet-stream" sparkle:edSignature="ydFdB54R0eWx3YiF0rjGG7j+JEEIXROttfxeRGG3ORbBkgO5jFJE+xREu/0Dxa/vvKEIGLimabLaLafDA21OAw=="/>
         </item>
-        <item>
-            <title>0.1.8</title>
-            <pubDate>Tue, 28 Jul 2026 21:12:47 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.8
-
-This release makes multi-provider usage clearer while keeping the menu bar
-compact.
-
-- Show Claude Code and Codex together, with a separate menu bar toggle for each
-  installed provider.
-- Choose the visible metrics directly under each provider in the native
-  settings popover.
-- Keep a single selected metric minimal, and add compact labels only when
-  multiple metrics are shown.
-- Show Claude Code extra usage and Codex account credits when the provider
-  returns them.
-- Default fresh installs and legacy upgrades to Weekly once, then preserve
-  every later user choice across updates.
-- Hide tools that are not installed while keeping installed, signed-out
-  providers visible with an accurate status.
-
-Thanks to [@cneren](https://github.com/cneren) for the initial multi-provider
-and credit usage contributions.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.8/AI-Usage.dmg" length="3830824" type="application/octet-stream" sparkle:edSignature="98geWazBZMtBN+xfj2yH/K2yJPYY4CGSspwSl4FPcIVOUolDXsKCV6gpKgvnG0jTZflmfY+qeiAMFFVXOdZABg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: JLwnO1UotNc/QFCU9y8OrZFoW+cs9aUC6kE3yXyAuxF+Ig0eRPn8o9PdPCksOqXbj2c1mcoCIFmnZkv+943DCw==
-length: 7900
+edSignature: fL9KoIZYlWI7HJmumoVlTWCk6Z45ufMQ6rS5Qk9/H23hlBXgCFKBcBlDmtA9ti4Pa5XPLh9SC2huI8b4eqXVBQ==
+length: 7486
 -->
