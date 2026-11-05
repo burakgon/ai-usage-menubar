@@ -167,6 +167,19 @@ final class VisualSnapshotTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
+    func testSettingsMetricChoicesWrapInsteadOfTruncating() {
+        let choices = WrappingHStack(spacing: 8, lineSpacing: 4) {
+            ForEach(0..<6, id: \.self) { _ in
+                Color.clear.frame(width: 60, height: 16)
+            }
+        }
+
+        let size = measuredSize(of: choices, width: 200)
+
+        XCTAssertEqual(size.height, 36, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(size.width, 200)
+    }
+
     func testProviderSurfaceKeepsOddQuotaCountCompact() {
         let snapshot = ProviderSnapshot(
             provider: .claude,
