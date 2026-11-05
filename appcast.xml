@@ -6,6 +6,40 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.3.0</title>
+            <pubDate>Thu, 05 Nov 2026 15:03:08 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.3.0
+
+This release brings every provider up to date and adds Z.ai.
+
+- Show banked Claude Code and Codex usage-limit resets, when each one expires,
+  and an orange warning in the day before the next one expires.
+- Add Z.ai GLM Coding Plan session, weekly, and web search limits, using the
+  key Claude Code or OpenCode is already set up with.
+- Restore Antigravity's Gemini limits and plan, add the Argon weekly quota, and
+  read a running Antigravity app or `agy` CLI when Google withholds an
+  account's quota instead of reporting it as signed out.
+- Show Claude Code's weekly usage in the menu bar on accounts without a session
+  window.
+- Use current plan names: Claude Max and Ultra, and Codex Pro 100, 200, and 500.
+- Show Claude Code extra usage in your billing currency and Cursor on-demand
+  spend, and hide Codex credits on accounts without them.
+- Show fully used Devin quotas, explain Grok team accounts, and treat GitHub's
+  rate limits as rate limits instead of expired sign-ins.
+- Wait progressively longer after repeated Claude rate limits.
+- Use the official Copilot, Devin, and Grok marks, and keep provider cards
+  inside the panel while scrolling.
+
+Thanks to cneren, rafalozan0, whale9820, ofelipeguimaraes, and eurekarex018 for
+their reports and contributions.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.3.0/AI-Usage.dmg" length="4228324" type="application/octet-stream" sparkle:edSignature="onbwIJJHSp+KUCwtOYTPrPm1qhbBwk5GHov2ZhOIuazW1hQ9IUWt7qS9ah3dMOlOc8zv4FmxsxTlxqHvExgQCQ=="/>
+        </item>
+        <item>
             <title>0.2.1</title>
             <pubDate>Wed, 29 Jul 2026 17:16:15 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -99,33 +133,9 @@ and credit usage contributions.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.8/AI-Usage.dmg" length="3830824" type="application/octet-stream" sparkle:edSignature="98geWazBZMtBN+xfj2yH/K2yJPYY4CGSspwSl4FPcIVOUolDXsKCV6gpKgvnG0jTZflmfY+qeiAMFFVXOdZABg=="/>
         </item>
-        <item>
-            <title>0.1.7</title>
-            <pubDate>Tue, 28 Jul 2026 02:10:52 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.1.7</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.7
-
-This release gives the menu bar panel a calmer, clearer native finish.
-
-- Use adaptive system teal for normal quota progress while keeping warning and
-  critical limits immediately recognizable.
-- Keep quota values readable in both light and dark mode.
-- Place Refresh and Settings in one stable Liquid Glass control with matching
-  sizing and no movement while usage refreshes.
-- Tighten quota rows, provider states, and accessibility labels without adding
-  persistent background work.
-
-The app stays lightweight between scheduled refreshes without keeping its panel
-loaded in the background.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.7/AI-Usage.dmg" length="3508891" type="application/octet-stream" sparkle:edSignature="voTY3H/wwVz8AXLUANfzo4V/bAJ3lFnG0hwlD47lAu6co/d6Jru802K+wn5b+BwvhmcBVsN2hA/dJVosNn2CCg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: e7WPtQ7zABnvjrZbPZrTSYaIpch3EQDT/tnX900CH77w2LVd/G02QUV8tnHnJGNNWTHbrfpQ70xUFi+O1vBGAw==
-length: 7219
+edSignature: JLwnO1UotNc/QFCU9y8OrZFoW+cs9aUC6kE3yXyAuxF+Ig0eRPn8o9PdPCksOqXbj2c1mcoCIFmnZkv+943DCw==
+length: 7900
 -->
