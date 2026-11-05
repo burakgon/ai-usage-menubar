@@ -455,6 +455,15 @@ final class VisualSnapshotTests: XCTestCase {
                     QuotaWindow(kind: .weekly, usedPercent: 48, resetsAt: nil)
                 ],
                 fetchedAt: now
+            ),
+            .zai: ProviderSnapshot(
+                provider: .zai,
+                planName: "Pro",
+                windows: [
+                    QuotaWindow(kind: .session, usedPercent: 27, resetsAt: nil),
+                    QuotaWindow(kind: .weekly, usedPercent: 21, resetsAt: nil)
+                ],
+                fetchedAt: now
             )
         ]
         let providers = ProviderID.allCases.compactMap { provider in

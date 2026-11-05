@@ -22,7 +22,8 @@ final class LoginShellEnvironment: @unchecked Sendable {
     private static let supportedNames = [
         "CLAUDE_CONFIG_DIR",
         "CODEX_HOME",
-        "PATH"
+        "PATH",
+        "ZAI_API_KEY"
     ]
     private static let beginMarker = "__AIUSAGE_ENV_BEGIN__"
     private static let endMarker = "__AIUSAGE_ENV_END__"
@@ -121,6 +122,9 @@ struct SystemProviderAvailabilityChecker: ProviderAvailabilityChecking {
             let path = environment.value(for: "PATH") ?? ""
 
             return Set(ProviderID.allCases.filter { provider in
+                if provider.isDetectedByCredential {
+                    return Self.hasCredential(for: provider)
+                }
                 let descriptor = provider.descriptor
                 return descriptor.executableNames.contains {
                     Self.containsExecutable(named: $0, searchPath: path)
@@ -133,6 +137,15 @@ struct SystemProviderAvailabilityChecker: ProviderAvailabilityChecking {
 
     private static func fileExists(at path: String) -> Bool {
         FileManager.default.fileExists(atPath: expandHome(path))
+    }
+
+    private static func hasCredential(for provider: ProviderID) -> Bool {
+        switch provider {
+        case .zai:
+            ZAIAuthStore().loadCredential() != nil
+        default:
+            false
+        }
     }
 
     private static func containsExecutable(

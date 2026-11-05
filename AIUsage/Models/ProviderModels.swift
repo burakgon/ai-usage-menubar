@@ -8,6 +8,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     case copilot
     case devin
     case grok
+    case zai
 
     var id: Self { self }
 
@@ -20,6 +21,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: "GitHub Copilot"
         case .devin: "Devin"
         case .grok: "Grok"
+        case .zai: "Z.ai"
         }
     }
 
@@ -32,9 +34,15 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: "ProviderCopilot"
         case .devin: "ProviderDevin"
         case .grok: "ProviderGrok"
+        case .zai: "ProviderZAI"
         }
     }
 
+    /// Z.ai has no app or CLI of its own to detect. It counts as installed
+    /// while another coding tool on this Mac holds a GLM Coding Plan key.
+    var isDetectedByCredential: Bool {
+        self == .zai
+    }
 
     var descriptor: ProviderDescriptor {
         ProviderDescriptor(
@@ -56,6 +64,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: ["copilot", "github-copilot"]
         case .devin: ["devin"]
         case .grok: ["grok"]
+        case .zai: []
         }
     }
 
@@ -91,6 +100,8 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
             ]
         case .grok:
             ["~/.grok"]
+        case .zai:
+            []
         }
     }
 
@@ -98,7 +109,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .cursor: .totalUsage
         case .copilot: .credits
-        case .claude, .codex, .antigravity, .devin, .grok: .weekly
+        case .claude, .codex, .antigravity, .devin, .grok, .zai: .weekly
         }
     }
 }
@@ -120,6 +131,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
     case claudePool
     case claudePoolWeekly
     case argonWeekly
+    case webSearches
 
     var title: String {
         switch self {
@@ -139,6 +151,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .claudePool: "Claude"
         case .claudePoolWeekly: "Claude Weekly"
         case .argonWeekly: "Argon Weekly"
+        case .webSearches: "Web Searches"
         }
     }
 
@@ -160,6 +173,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .claudePool: .claudePool
         case .claudePoolWeekly: .claudePoolWeekly
         case .argonWeekly: .argonWeekly
+        case .webSearches: .webSearches
         }
     }
 }
@@ -180,6 +194,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case claudePool
     case claudePoolWeekly
     case argonWeekly
+    case webSearches
     case extraUsage
     case credits
     case resets
@@ -203,6 +218,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePool: "Claude"
         case .claudePoolWeekly: "Claude Weekly"
         case .argonWeekly: "Argon Weekly"
+        case .webSearches: "Web Searches"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
         case .resets: "Resets"
@@ -226,6 +242,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePool: "brain"
         case .claudePoolWeekly: "calendar.badge.clock"
         case .argonWeekly: "atom"
+        case .webSearches: "magnifyingglass"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
         case .resets: "arrow.counterclockwise"
@@ -249,6 +266,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePool: "Cl"
         case .claudePoolWeekly: "ClW"
         case .argonWeekly: "ArW"
+        case .webSearches: "WS"
         case .extraUsage: "E"
         case .credits: "C"
         case .resets: "R"
@@ -272,6 +290,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePool: .claudePool
         case .claudePoolWeekly: .claudePoolWeekly
         case .argonWeekly: .argonWeekly
+        case .webSearches: .webSearches
         case .credits: .credits
         case .extraUsage, .resets: nil
         }

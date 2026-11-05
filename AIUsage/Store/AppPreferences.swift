@@ -86,8 +86,13 @@ final class AppPreferences {
            defaults.object(forKey: Key.openUsageProvidersAdded) == nil {
             initialTrackedProviders.formUnion(Self.openUsageProviders)
         }
+        if restoredProviders != nil,
+           defaults.object(forKey: Key.zaiProviderAdded) == nil {
+            initialTrackedProviders.insert(.zai)
+        }
         trackedProviderIDs = initialTrackedProviders
         defaults.set(true, forKey: Key.openUsageProvidersAdded)
+        defaults.set(true, forKey: Key.zaiProviderAdded)
 
         let storedVisibleProviders = Self.decode(
             [ProviderID].self,
@@ -460,6 +465,7 @@ final class AppPreferences {
         static let hasCompletedInitialSetup = "initialSettingsCompleted.v1"
         static let openUsageProvidersAdded =
             "openUsageProvidersAdded.v1"
+        static let zaiProviderAdded = "zaiProviderAdded.v1"
         static let menuBarSelection = "menuBarSelection"
         static let menuBarWindow = "menuBarWindow"
         static let usageDisplayMode = "usageDisplayMode"

@@ -56,7 +56,8 @@ final class UsageStore {
             AntigravityProvider(),
             CopilotProvider(),
             DevinProvider(),
-            GrokProvider()
+            GrokProvider(),
+            ZAIProvider()
         ],
         availabilityChecker: any ProviderAvailabilityChecking =
             SystemProviderAvailabilityChecker(),
