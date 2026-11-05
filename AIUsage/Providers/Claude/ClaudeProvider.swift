@@ -9,6 +9,13 @@ actor ClaudeProvider: UsageProvider {
     private let dateProvider: DateProviding
     private var activeCredentialFingerprint: Data?
     private var rateLimitedUntil: Date?
+    private var rateLimitStrikes = 0
+    private var resetGrants: ClaudeResetGrants?
+    private var resetGrantsCheckedAt: Date?
+
+    /// Claude Code checks its reset grants only occasionally, and Anthropic
+    /// answers a polled grants read with `429`.
+    static let resetGrantsInterval: TimeInterval = 60 * 60
 
     init(
         authStore: ClaudeAuthStore = ClaudeAuthStore(),
@@ -89,7 +96,13 @@ actor ClaudeProvider: UsageProvider {
             throw ProviderFailure(.authentication, "Claude token is missing. Run `claude` to log in.")
         }
 
-        var response = try await sendUsage(accessToken: accessToken)
+        let readsResetGrants = resetGrantsCheckedAt.map {
+            now.timeIntervalSince($0) >= Self.resetGrantsInterval
+        } ?? true
+        var response = try await sendUsage(
+            accessToken: accessToken,
+            includingResetGrants: readsResetGrants
+        )
         if response.statusCode == 401 || response.statusCode == 403 {
             guard let refreshToken = nonEmpty(state.oauth.refreshToken) else {
                 throw ProviderFailure(
@@ -105,7 +118,10 @@ actor ClaudeProvider: UsageProvider {
             guard let refreshedToken = nonEmpty(state.oauth.accessToken) else {
                 throw ProviderFailure(.authentication, "Claude session expired.")
             }
-            response = try await sendUsage(accessToken: refreshedToken)
+            response = try await sendUsage(
+                accessToken: refreshedToken,
+                includingResetGrants: readsResetGrants
+            )
             if response.statusCode == 401 || response.statusCode == 403 {
                 throw ProviderFailure(
                     .authentication,
@@ -119,7 +135,18 @@ actor ClaudeProvider: UsageProvider {
         }
 
         if response.statusCode == 429 {
-            let retryAt = ProviderParsing.retryDate(from: response, now: dateProvider.now())
+            let failedAt = dateProvider.now()
+            if readsResetGrants {
+                // Retry the grants in an hour; the next read stays plain.
+                resetGrantsCheckedAt = failedAt
+            }
+            // Anthropic budgets this endpoint per account and keeps its own
+            // penalty, so repeated limits wait progressively longer.
+            rateLimitStrikes += 1
+            let retryAt = max(
+                ProviderParsing.retryDate(from: response, now: failedAt),
+                failedAt.addingTimeInterval(Self.backoff(strikes: rateLimitStrikes))
+            )
             rateLimitedUntil = retryAt
             throw ProviderFailure(
                 .rateLimited,
@@ -128,14 +155,27 @@ actor ClaudeProvider: UsageProvider {
             )
         }
 
+        let fetchedAt = dateProvider.now()
+        if readsResetGrants, (200..<300).contains(response.statusCode) {
+            resetGrants = ClaudeUsageMapper.resetGrants(from: response)
+            resetGrantsCheckedAt = fetchedAt
+        }
         let snapshot = try ClaudeUsageMapper.map(
             response: response,
             credentials: state.oauth,
-            now: dateProvider.now()
+            resets: resetGrants?.resets(at: fetchedAt),
+            now: fetchedAt
         )
         rateLimitedUntil = nil
+        rateLimitStrikes = 0
         generation = expectedGeneration
         return snapshot
+    }
+
+    /// Five minutes, doubling with each consecutive limit, up to an hour.
+    static func backoff(strikes: Int) -> TimeInterval {
+        let doublings = Double(min(max(strikes - 1, 0), 4))
+        return min(300 * pow(2, doublings), 3_600)
     }
 
     private func refreshAccessToken(
@@ -207,9 +247,15 @@ actor ClaudeProvider: UsageProvider {
         }
     }
 
-    private func sendUsage(accessToken: String) async throws -> HTTPResponse {
+    private func sendUsage(
+        accessToken: String,
+        includingResetGrants: Bool
+    ) async throws -> HTTPResponse {
         do {
-            return try await client.fetchUsage(accessToken: accessToken)
+            return try await client.fetchUsage(
+                accessToken: accessToken,
+                includingResetGrants: includingResetGrants
+            )
         } catch {
             throw transportFailure(error)
         }
@@ -220,6 +266,7 @@ actor ClaudeProvider: UsageProvider {
         guard fingerprint != activeCredentialFingerprint else { return }
         activeCredentialFingerprint = fingerprint
         rateLimitedUntil = nil
+        rateLimitStrikes = 0
     }
 
     private func transportFailure(_ error: Error) -> ProviderFailure {

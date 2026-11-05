@@ -274,7 +274,7 @@ final class VisualSnapshotTests: XCTestCase {
             id: .claude,
             results: [.success(ProviderSnapshot(
                 provider: .claude,
-                planName: "Pro 20x",
+                planName: "Ultra",
                 windows: [
                     QuotaWindow(
                         kind: .session,
@@ -309,7 +309,7 @@ final class VisualSnapshotTests: XCTestCase {
             id: .codex,
             results: [.success(ProviderSnapshot(
                 provider: .codex,
-                planName: "Pro 5x",
+                planName: "Pro 100",
                 windows: [
                     QuotaWindow(
                         kind: .session,
@@ -354,7 +354,7 @@ final class VisualSnapshotTests: XCTestCase {
         let snapshots: [ProviderID: ProviderSnapshot] = [
             .claude: ProviderSnapshot(
                 provider: .claude,
-                planName: "Pro 20x",
+                planName: "Ultra",
                 windows: [
                     QuotaWindow(kind: .session, usedPercent: 62, resetsAt: nil),
                     QuotaWindow(kind: .weekly, usedPercent: 37, resetsAt: nil),
@@ -370,7 +370,7 @@ final class VisualSnapshotTests: XCTestCase {
             ),
             .codex: ProviderSnapshot(
                 provider: .codex,
-                planName: "Pro 5x",
+                planName: "Pro 100",
                 windows: [
                     QuotaWindow(kind: .weekly, usedPercent: 74, resetsAt: nil),
                     QuotaWindow(

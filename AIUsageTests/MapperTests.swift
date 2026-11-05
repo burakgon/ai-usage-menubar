@@ -82,7 +82,7 @@ final class MapperTests: XCTestCase {
 
         let snapshot = try CodexUsageMapper.map(response: response, now: now)
 
-        XCTAssertEqual(snapshot.planName, "Pro 5x")
+        XCTAssertEqual(snapshot.planName, "Pro 100")
         XCTAssertEqual(snapshot.windows.map(\.kind), [.weekly, .sparkSession, .sparkWeekly])
         XCTAssertEqual(snapshot.windows[0].usedPercent, 73)
         XCTAssertEqual(snapshot.windows[1].usedPercent, 101.4)
@@ -240,32 +240,31 @@ final class MapperTests: XCTestCase {
         )
     }
 
-    func testCodexTreatsNoCreditsAndNegativeBalanceAsRealZero() throws {
-        let responses = [
-            httpResponse(
+    func testCodexHidesDisabledCreditsAndTreatsNegativeBalanceAsZero() throws {
+        let disabled = try CodexUsageMapper.map(
+            response: httpResponse(
                 json: """
                 {"credits":{"has_credits":false}}
                 """,
                 headers: ["x-codex-credits-balance": "25"]
             ),
-            httpResponse(json: """
-            {"credits":{"balance":-5}}
-            """)
-        ]
-        for response in responses {
-            let snapshot = try CodexUsageMapper.map(
-                response: response,
-                now: Date()
-            )
+            now: Date()
+        )
+        XCTAssertNil(disabled.billingUsage)
 
-            XCTAssertEqual(
-                snapshot.billingUsage,
-                .flexCreditBalance(
-                    remainingCredits: 0,
-                    usdValue: 0
-                )
+        let negative = try CodexUsageMapper.map(
+            response: httpResponse(json: """
+            {"credits":{"balance":-5}}
+            """),
+            now: Date()
+        )
+        XCTAssertEqual(
+            negative.billingUsage,
+            .flexCreditBalance(
+                remainingCredits: 0,
+                usdValue: 0
             )
-        }
+        )
     }
 
     func testCodexOmitsUnknownCreditAvailability() throws {
@@ -406,7 +405,7 @@ final class MapperTests: XCTestCase {
 
     func testAntigravityMapsAllAuthoritativeQuotaPools() throws {
         let snapshot = try XCTUnwrap(AntigravityUsageMapper.summary(
-            Data("""
+            [Data("""
             {
               "groups": [
                 {"buckets": [
@@ -417,7 +416,7 @@ final class MapperTests: XCTestCase {
                 ]}
               ]
             }
-            """.utf8),
+            """.utf8)],
             planName: "Pro",
             now: Date()
         ))

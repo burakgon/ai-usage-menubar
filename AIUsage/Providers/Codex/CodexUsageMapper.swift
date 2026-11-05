@@ -1,5 +1,28 @@
 import Foundation
 
+/// The banked rate-limit resets listed by Codex's reset-credits endpoint.
+struct CodexResetCreditList: Equatable, Sendable {
+    let availableCount: Int
+    let expirations: [Date]
+
+    static func parse(_ data: Data) -> CodexResetCreditList? {
+        guard let body = try? ProviderParsing.object(from: data),
+              let count = CodexUsageMapper.availableResetCount(body) else {
+            return nil
+        }
+        let credits = body["credits"] as? [[String: Any]] ?? []
+        let expirations = credits
+            .filter { credit in
+                guard let status = ProviderParsing.string(credit["status"]) else {
+                    return true
+                }
+                return status == "available"
+            }
+            .compactMap { ProviderParsing.date($0["expires_at"]) }
+        return CodexResetCreditList(availableCount: count, expirations: expirations)
+    }
+}
+
 enum CodexUsageMapper {
     // Codex flex credits are worth four US cents each.
     static let creditUSDRate = 0.04
@@ -15,7 +38,11 @@ enum CodexUsageMapper {
         let fallbackKind: WindowKind
     }
 
-    static func map(response: HTTPResponse, now: Date) throws -> ProviderSnapshot {
+    static func map(
+        response: HTTPResponse,
+        resetCreditList: CodexResetCreditList? = nil,
+        now: Date
+    ) throws -> ProviderSnapshot {
         guard (200..<300).contains(response.statusCode) else {
             throw ProviderFailure(
                 response.statusCode >= 500 ? .transient : .invalidResponse,
@@ -54,8 +81,43 @@ enum CodexUsageMapper {
             planName: planName(body["plan_type"]),
             windows: windows,
             billingUsage: billingUsage(response: response, body: body),
+            resets: resets(
+                embeddedCount: embeddedResetCount(body),
+                list: resetCreditList
+            ),
             fetchedAt: now
         )
+    }
+
+    /// The count of banked resets in this usage response, if it has one.
+    static func embeddedResetCount(_ body: [String: Any]) -> Int? {
+        ProviderParsing.object(body["rate_limit_reset_credits"])
+            .flatMap(availableResetCount)
+    }
+
+    static func availableResetCount(_ source: [String: Any]) -> Int? {
+        guard let count = ProviderParsing.double(source["available_count"]),
+              count >= 0,
+              count < Double(Int32.max) else {
+            return nil
+        }
+        return Int(count.rounded(.down))
+    }
+
+    /// The usage response's count is current on every read. The list, read
+    /// less often, supplies expirations only while it agrees with that count,
+    /// so it never stands in for a reset spent or granted since.
+    static func resets(
+        embeddedCount: Int?,
+        list: CodexResetCreditList?
+    ) -> UsageResets? {
+        guard let count = embeddedCount ?? list?.availableCount else {
+            return nil
+        }
+        guard let list, list.availableCount == count else {
+            return UsageResets(availableCount: count)
+        }
+        return UsageResets(availableCount: count, expirations: list.expirations)
     }
 
     static func planName(_ value: Any?) -> String? {
@@ -64,9 +126,12 @@ enum CodexUsageMapper {
               !raw.isEmpty else {
             return nil
         }
+        // OpenAI's published Pro plan names.
         switch raw.lowercased() {
-        case "prolite": return "Pro 5x"
-        case "pro": return "Pro 20x"
+        case "prolite": return "Pro 100"
+        case "pro": return "Pro 200"
+        case "promax": return "Pro 500"
+        case "self_serve_business_prolite": return "Business Premium"
         default: return ProviderParsing.titleCaseIdentifier(raw)
         }
     }
@@ -203,20 +268,24 @@ enum CodexUsageMapper {
         )
     }
 
+    /// An account without credits shows no Credits row rather than $0.
     private static func creditsRemaining(
         response: HTTPResponse,
         body: [String: Any]
     ) -> Double? {
-        if let credits = ProviderParsing.object(body["credits"]) {
-            if let balance = ProviderParsing.double(credits["balance"]) {
-                return balance
-            }
-            if credits["has_credits"] as? Bool == false {
-                return 0
-            }
+        let credits = ProviderParsing.object(body["credits"])
+        let hasCredits = (credits?["has_credits"] as? Bool)
+            ?? boolean(response.header("x-codex-credits-has-credits"))
+        guard hasCredits != false else { return nil }
+        return ProviderParsing.double(credits?["balance"])
+            ?? ProviderParsing.double(response.header("x-codex-credits-balance"))
+    }
+
+    private static func boolean(_ value: String?) -> Bool? {
+        switch value?.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "true", "1": true
+        case "false", "0": false
+        default: nil
         }
-        return ProviderParsing.double(
-            response.header("x-codex-credits-balance")
-        )
     }
 }

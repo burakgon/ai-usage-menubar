@@ -15,6 +15,10 @@ struct ClaudeRefreshResponse: Decodable, Equatable, Sendable {
 struct ClaudeUsageClient: Sendable {
     private static let refreshScopes =
         "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
+    /// Anthropic shows reset grants only to a recent Claude Code
+    /// (`ineligible_reason: cli_version` otherwise) on its CLI surface.
+    static let claudeCodeVersion = "2.1.318"
+    static let userAgent = "claude-cli/\(claudeCodeVersion) (external, cli)"
 
     let http: HTTPClient
 
@@ -22,16 +26,21 @@ struct ClaudeUsageClient: Sendable {
         self.http = http
     }
 
-    func fetchUsage(accessToken: String) async throws -> HTTPResponse {
+    func fetchUsage(
+        accessToken: String,
+        includingResetGrants: Bool = false
+    ) async throws -> HTTPResponse {
         try await http.send(HTTPRequest(
             method: .get,
-            url: ClaudeAuthStore.usageURL,
+            url: includingResetGrants
+                ? ClaudeAuthStore.usageWithResetGrantsURL
+                : ClaudeAuthStore.usageURL,
             headers: [
                 "Authorization": "Bearer \(accessToken.trimmingCharacters(in: .whitespacesAndNewlines))",
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "anthropic-beta": "oauth-2025-04-20",
-                "User-Agent": "claude-code/2.1.69"
+                "User-Agent": Self.userAgent
             ]
         ))
     }

@@ -20,39 +20,29 @@ enum DevinUsageMapper {
         }
         let planStatus = ProviderParsing.object(status["planStatus"]) ?? [:]
         let planInfo = ProviderParsing.object(planStatus["planInfo"]) ?? [:]
-        let hidesDaily = planInfo["hideDailyQuota"] as? Bool == true
-        let dailyRemaining = ProviderParsing.double(
-            planStatus["dailyQuotaRemainingPercent"]
+        let daily = try quota(
+            planStatus,
+            remaining: "dailyQuotaRemainingPercent",
+            reset: "dailyQuotaResetAtUnix"
         )
-        let weeklyRemaining = ProviderParsing.double(
-            planStatus["weeklyQuotaRemainingPercent"]
-        )
-        let weeklyReset = ProviderParsing.date(
-            planStatus["weeklyQuotaResetAtUnix"]
+        let weekly = try quota(
+            planStatus,
+            remaining: "weeklyQuotaRemainingPercent",
+            reset: "weeklyQuotaResetAtUnix"
         )
         var windows: [QuotaWindow] = []
 
-        if !hidesDaily, let dailyRemaining {
-            windows.append(QuotaWindow(
-                kind: .daily,
-                usedPercent: clampPercent(100 - dailyRemaining),
-                resetsAt: ProviderParsing.date(
-                    planStatus["dailyQuotaResetAtUnix"]
-                )
-            ))
-        }
-        if let weeklyRemaining {
-            windows.append(QuotaWindow(
-                kind: .weekly,
-                usedPercent: clampPercent(100 - weeklyRemaining),
-                resetsAt: weeklyReset
-            ))
-        } else if hidesDaily, let dailyRemaining {
-            windows.append(QuotaWindow(
-                kind: .weekly,
-                usedPercent: clampPercent(100 - dailyRemaining),
-                resetsAt: weeklyReset
-            ))
+        if planInfo["hideDailyQuota"] as? Bool == true {
+            // A plan that hides its daily quota still meters it. With no
+            // weekly window, the Weekly row carries it.
+            if let shown = weekly ?? daily.map({
+                (remaining: $0.remaining, resetsAt: Date?.none)
+            }) {
+                windows.append(window(.weekly, shown))
+            }
+        } else {
+            if let daily { windows.append(window(.daily, daily)) }
+            if let weekly { windows.append(window(.weekly, weekly)) }
         }
 
         guard !windows.isEmpty else {
@@ -66,6 +56,38 @@ enum DevinUsageMapper {
             planName: ProviderParsing.string(planInfo["planName"]),
             windows: windows,
             fetchedAt: now
+        )
+    }
+
+    /// Devin reports the share of a quota left. Proto3 JSON omits a zero, so
+    /// a window with a reset time and no share has none left. A share that
+    /// is present but unreadable is a changed schema, not an empty quota.
+    private static func quota(
+        _ planStatus: [String: Any],
+        remaining key: String,
+        reset resetKey: String
+    ) throws -> (remaining: Double, resetsAt: Date?)? {
+        let resetsAt = ProviderParsing.date(planStatus[resetKey])
+        guard let value = planStatus[key], !(value is NSNull) else {
+            return resetsAt.map { (remaining: 0, resetsAt: $0) }
+        }
+        guard let remaining = ProviderParsing.double(value) else {
+            throw ProviderFailure(
+                .invalidResponse,
+                "Devin quota response changed."
+            )
+        }
+        return (remaining, resetsAt)
+    }
+
+    private static func window(
+        _ kind: QuotaKind,
+        _ quota: (remaining: Double, resetsAt: Date?)
+    ) -> QuotaWindow {
+        QuotaWindow(
+            kind: kind,
+            usedPercent: clampPercent(100 - quota.remaining),
+            resetsAt: quota.resetsAt
         )
     }
 

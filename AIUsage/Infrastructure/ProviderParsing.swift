@@ -106,18 +106,28 @@ enum ProviderParsing {
         return nil
     }
 
+    /// A provider's `Retry-After` is honored up to an hour; a longer wait
+    /// is cut to an hour so a bad header cannot silence a provider for days.
+    static let maximumRetryDelay: TimeInterval = 60 * 60
+
     static func retryDate(from response: HTTPResponse, now: Date) -> Date {
         guard let value = response.header("Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines) else {
             return now.addingTimeInterval(300)
         }
-        if let seconds = TimeInterval(value) {
-            return now.addingTimeInterval(max(seconds, 0))
+        let delay: TimeInterval
+        if let seconds = TimeInterval(value), seconds.isFinite {
+            delay = seconds
+        } else {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
+            guard let date = formatter.date(from: value) else {
+                return now.addingTimeInterval(300)
+            }
+            delay = date.timeIntervalSince(now)
         }
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
-        return formatter.date(from: value) ?? now.addingTimeInterval(300)
+        return now.addingTimeInterval(min(max(delay, 0), maximumRetryDelay))
     }
 
     static func jwtExpiration(_ token: String) -> Date? {

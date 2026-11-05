@@ -8,6 +8,15 @@ enum GrokUsageMapper {
         planResponse: HTTPResponse?,
         now: Date
     ) throws -> ProviderSnapshot {
+        if response.statusCode == 412,
+           let body = try? ProviderParsing.object(from: response.body),
+           ProviderParsing.string(body["error"])?
+            .localizedCaseInsensitiveContains("no personal team") == true {
+            throw ProviderFailure(
+                .invalidResponse,
+                "Grok team accounts have no personal quota."
+            )
+        }
         guard (200..<300).contains(response.statusCode) else {
             throw ProviderFailure(
                 response.statusCode >= 500 ? .transient : .invalidResponse,

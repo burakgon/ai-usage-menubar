@@ -54,6 +54,12 @@ struct ClaudeCredentialGeneration: Equatable, Sendable {
 
 struct ClaudeAuthStore: Sendable {
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+    /// The same usage read with Claude Code's reset-grant inventory
+    /// (`cedar_ember`) included. Anthropic throttles this variant when it is
+    /// polled, so it replaces the plain read at most once an hour.
+    static let usageWithResetGrantsURL = URL(
+        string: "https://api.anthropic.com/api/oauth/usage?cedar_ember=1"
+    )!
     static let refreshURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
     static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let requiredUsageScope = "user:profile"

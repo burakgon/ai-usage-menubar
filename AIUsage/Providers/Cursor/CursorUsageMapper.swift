@@ -65,7 +65,45 @@ enum CursorUsageMapper {
             provider: .cursor,
             planName: planName(planResponse),
             windows: windows,
+            billingUsage: onDemandUsage(
+                ProviderParsing.object(body["spendLimitUsage"])
+            ),
             fetchedAt: now
+        )
+    }
+
+    /// Cursor's on-demand usage beyond the plan, in cents. A team's shared
+    /// pool is not the member's own limit, so only a personal limit, or
+    /// personal spend without one, is shown.
+    static func onDemandUsage(_ spend: [String: Any]?) -> BillingUsage? {
+        guard let spend else { return nil }
+        let individualLimit = ProviderParsing.double(spend["individualLimit"])
+        let isTeamPool = individualLimit == nil && (
+            ProviderParsing.string(spend["limitType"])?.lowercased() == "team" ||
+                (ProviderParsing.double(spend["pooledLimit"]) ?? 0) > 0
+        )
+        guard !isTeamPool else { return nil }
+
+        let limit = individualLimit ?? 0
+        let remaining = ProviderParsing.double(spend["individualRemaining"]) ?? 0
+        let reported = [
+            ProviderParsing.double(spend["individualUsed"]),
+            ProviderParsing.double(spend["totalSpend"])
+        ].compactMap { $0 }
+        let spentCents = reported.first { $0 > 0 }
+            ?? max(0, limit - remaining)
+
+        if limit > 0 {
+            return .boundedSpend(
+                usedAmount: ProviderParsing.centsToDollars(spentCents),
+                limitAmount: ProviderParsing.centsToDollars(limit),
+                currencyCode: "USD"
+            )
+        }
+        guard spentCents > 0 else { return nil }
+        return .unboundedSpend(
+            usedAmount: ProviderParsing.centsToDollars(spentCents),
+            currencyCode: "USD"
         )
     }
 

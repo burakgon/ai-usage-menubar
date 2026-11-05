@@ -182,3 +182,115 @@ private extension Data {
             .replacingOccurrences(of: "=", with: "")
     }
 }
+
+/// Answers each executable with a fixed result and records every call.
+final class ScriptedProcessRunner: ProcessRunning, @unchecked Sendable {
+    private let lock = NSLock()
+    private let results: [String: ProcessResult]
+    private var calls: [(executable: String, arguments: [String])] = []
+
+    init(_ results: [String: ProcessResult]) {
+        self.results = results
+    }
+
+    func run(
+        executable: String,
+        arguments: [String],
+        environment: [String: String],
+        timeout: TimeInterval
+    ) throws -> ProcessResult {
+        lock.withLock {
+            calls.append((executable, arguments))
+            return results[executable] ??
+                ProcessResult(exitCode: 1, stdout: "", stderr: "")
+        }
+    }
+
+    func recordedCalls() -> [(executable: String, arguments: [String])] {
+        lock.withLock { calls }
+    }
+}
+
+struct FixedProcessInspector: ProcessInspecting {
+    var running: [LocalProcess] = []
+    var commandLines: [Int32: ProcessCommandLine] = [:]
+    var childProcesses: [Int32: [Int32]] = [:]
+    var ports: [Int32: [Int]] = [:]
+
+    func processes() -> [LocalProcess] { running }
+    func commandLine(of pid: Int32) -> ProcessCommandLine? { commandLines[pid] }
+    func children(of pid: Int32) -> [Int32] { childProcesses[pid] ?? [] }
+    func listeningPorts(of pid: Int32) -> [Int] { ports[pid] ?? [] }
+}
+
+/// Answers by URL, so a test does not depend on request order.
+actor RoutedHTTPClient: HTTPClient {
+    private var routes: [String: [HTTPResponse]]
+    private var requests: [HTTPRequest] = []
+
+    init(_ routes: [String: [HTTPResponse]]) {
+        self.routes = routes
+    }
+
+    func send(_ request: HTTPRequest) async throws -> HTTPResponse {
+        requests.append(request)
+        let key = request.url.absoluteString
+        guard var queue = routes[key], !queue.isEmpty else {
+            throw ProviderFailure(.transient, "No route for \(key).")
+        }
+        let response = queue.removeFirst()
+        // The last response keeps answering repeated requests.
+        routes[key] = queue.isEmpty ? [response] : queue
+        return response
+    }
+
+    func capturedRequests() -> [HTTPRequest] {
+        requests
+    }
+}
+
+func keychainRunner(antigravityToken json: String) -> ScriptedProcessRunner {
+    ScriptedProcessRunner([
+        "/usr/bin/security": ProcessResult(
+            exitCode: 0,
+            stdout: "go-keyring-base64:" + Data(json.utf8).base64EncodedString(),
+            stderr: ""
+        )
+    ])
+}
+
+final class MutableDateProvider: DateProviding, @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Date
+
+    init(_ value: Date) {
+        self.value = value
+    }
+
+    func now() -> Date {
+        lock.withLock { value }
+    }
+
+    func advance(by interval: TimeInterval) {
+        lock.withLock { value = value.addingTimeInterval(interval) }
+    }
+}
+
+func claudeKeychain(
+    expiresAt: Date,
+    subscriptionType: String? = "max",
+    rateLimitTier: String? = "default_claude_max_20x"
+) -> MemoryKeychain {
+    let oauth = ClaudeOAuth(
+        accessToken: "access",
+        refreshToken: "refresh",
+        expiresAt: expiresAt.timeIntervalSince1970 * 1_000,
+        subscriptionType: subscriptionType,
+        rateLimitTier: rateLimitTier,
+        scopes: ["user:profile"]
+    )
+    return MemoryKeychain(currentUser: [
+        "Claude Code-credentials":
+            encodedJSON(ClaudeCredentialsDocument(claudeAiOauth: oauth))
+    ])
+}

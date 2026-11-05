@@ -30,6 +30,14 @@ struct MenuBarPresentation: Equatable, Sendable {
             accessibilityLabel = reading.isStale
                 ? "\(subject) \(detail), stale"
                 : "\(subject) \(detail)"
+        case let .resets(available):
+            valueText = "↻\(available)"
+            let detail = available == 1
+                ? "1 usage limit reset available"
+                : "\(available) usage limit resets available"
+            accessibilityLabel = reading.isStale
+                ? "\(provider) \(detail), stale"
+                : "\(provider) \(detail)"
         }
         showsStaleIndicator = reading.isStale
     }
@@ -112,10 +120,11 @@ struct MenuBarProviderPresentation: Equatable, Sendable {
                 valueText = "\(Int(percent.rounded()))"
             }
 
+            // The reset count's ↻ already says what it is.
+            let needsLabel = group.showsMetricLabels &&
+                reading.metric != .resets
             return MenuBarMetricPresentation(
-                label: group.showsMetricLabels
-                    ? reading.metric.compactLabel
-                    : nil,
+                label: needsLabel ? reading.metric.compactLabel : nil,
                 valueText: valueText,
                 showsStaleIndicator:
                     presentation.showsStaleIndicator

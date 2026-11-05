@@ -3,9 +3,19 @@ import Foundation
 actor CodexProvider: UsageProvider {
     nonisolated let id = ProviderID.codex
 
+    private struct ResetCreditListRead {
+        let accountID: String?
+        let list: CodexResetCreditList?
+        let checkedAt: Date
+    }
+
+    static let resetCreditListInterval: TimeInterval = 60 * 60
+    static let resetCreditListRecheckInterval: TimeInterval = 5 * 60
+
     private let authStore: CodexAuthStore
     private let client: CodexUsageClient
     private let dateProvider: DateProviding
+    private var resetCreditListRead: ResetCreditListRead?
 
     init(
         authStore: CodexAuthStore = CodexAuthStore(),
@@ -100,7 +110,74 @@ actor CodexProvider: UsageProvider {
             )
         }
 
-        return try CodexUsageMapper.map(response: response, now: dateProvider.now())
+        let now = dateProvider.now()
+        let accountID = state.auth.tokens?.accountID
+        if (200..<300).contains(response.statusCode) {
+            let embeddedCount = (try? ProviderParsing.object(from: response.body))
+                .flatMap(CodexUsageMapper.embeddedResetCount)
+            if readsResetCreditList(
+                embeddedCount: embeddedCount,
+                accountID: accountID,
+                now: now
+            ) {
+                await readResetCreditList(
+                    accessToken: accessToken,
+                    accountID: accountID,
+                    now: now
+                )
+            }
+        }
+        let list = resetCreditListRead?.accountID == accountID
+            ? resetCreditListRead?.list
+            : nil
+        return try CodexUsageMapper.map(
+            response: response,
+            resetCreditList: list,
+            now: now
+        )
+    }
+
+    /// The expiration list is optional detail. It is read hourly, sooner
+    /// when the usage count no longer matches it, and never when there is
+    /// nothing to list.
+    private func readsResetCreditList(
+        embeddedCount: Int?,
+        accountID: String?,
+        now: Date
+    ) -> Bool {
+        guard let embeddedCount, embeddedCount > 0 else { return false }
+        guard let read = resetCreditListRead, read.accountID == accountID else {
+            return true
+        }
+        let age = now.timeIntervalSince(read.checkedAt)
+        if age >= Self.resetCreditListInterval { return true }
+        if read.list?.availableCount != embeddedCount {
+            return age >= Self.resetCreditListRecheckInterval
+        }
+        return false
+    }
+
+    private func readResetCreditList(
+        accessToken: String,
+        accountID: String?,
+        now: Date
+    ) async {
+        var list: CodexResetCreditList?
+        if let response = try? await client.fetchResetCredits(
+            accessToken: accessToken,
+            accountID: accountID
+        ), (200..<300).contains(response.statusCode) {
+            list = CodexResetCreditList.parse(response.body)
+        }
+        let previous = resetCreditListRead?.accountID == accountID
+            ? resetCreditListRead?.list
+            : nil
+        // A failed read keeps what was known and tries again later.
+        resetCreditListRead = ResetCreditListRead(
+            accountID: accountID,
+            list: list ?? previous,
+            checkedAt: now
+        )
     }
 
     private func refreshAccessToken(

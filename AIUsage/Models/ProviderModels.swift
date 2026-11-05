@@ -35,6 +35,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
+
     var descriptor: ProviderDescriptor {
         ProviderDescriptor(
             id: self,
@@ -118,6 +119,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
     case completions
     case claudePool
     case claudePoolWeekly
+    case argonWeekly
 
     var title: String {
         switch self {
@@ -136,6 +138,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .completions: "Completions"
         case .claudePool: "Claude"
         case .claudePoolWeekly: "Claude Weekly"
+        case .argonWeekly: "Argon Weekly"
         }
     }
 
@@ -156,6 +159,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .completions: .completions
         case .claudePool: .claudePool
         case .claudePoolWeekly: .claudePoolWeekly
+        case .argonWeekly: .argonWeekly
         }
     }
 }
@@ -175,8 +179,10 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case completions
     case claudePool
     case claudePoolWeekly
+    case argonWeekly
     case extraUsage
     case credits
+    case resets
 
     var id: Self { self }
 
@@ -196,8 +202,10 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "Completions"
         case .claudePool: "Claude"
         case .claudePoolWeekly: "Claude Weekly"
+        case .argonWeekly: "Argon Weekly"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
+        case .resets: "Resets"
         }
     }
 
@@ -217,8 +225,10 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "text.badge.checkmark"
         case .claudePool: "brain"
         case .claudePoolWeekly: "calendar.badge.clock"
+        case .argonWeekly: "atom"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
+        case .resets: "arrow.counterclockwise"
         }
     }
 
@@ -238,8 +248,10 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: "Co"
         case .claudePool: "Cl"
         case .claudePoolWeekly: "ClW"
+        case .argonWeekly: "ArW"
         case .extraUsage: "E"
         case .credits: "C"
+        case .resets: "R"
         }
     }
 
@@ -259,8 +271,9 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .completions: .completions
         case .claudePool: .claudePool
         case .claudePoolWeekly: .claudePoolWeekly
+        case .argonWeekly: .argonWeekly
         case .credits: .credits
-        case .extraUsage: nil
+        case .extraUsage, .resets: nil
         }
     }
 }
@@ -357,6 +370,36 @@ enum MenuBarReadingValue: Equatable, Sendable {
     case percentage(Double)
     case money(amount: Double, currencyCode: String)
     case credits(remaining: Int, usdValue: Double)
+    case resets(available: Int)
+}
+
+/// Banked usage-limit resets a provider has granted the account, such as
+/// Claude's reset grants or Codex's rate-limit reset credits. Read-only:
+/// AI Usage never redeems them.
+struct UsageResets: Equatable, Sendable {
+    let availableCount: Int
+    /// Known expiration of each available reset, soonest first. Holds fewer
+    /// entries than `availableCount` when the provider omits some details.
+    let expirations: [Date]
+
+    init(availableCount: Int, expirations: [Date] = []) {
+        self.availableCount = max(availableCount, 0)
+        self.expirations = Array(expirations.sorted().prefix(self.availableCount))
+    }
+
+    var nextExpiration: Date? { expirations.first }
+
+    var hasUnknownExpirations: Bool { expirations.count < availableCount }
+
+    /// The resets still usable at `now`, without the ones that have expired
+    /// since the provider was last read.
+    func active(at now: Date) -> UsageResets {
+        let expired = expirations.filter { $0 <= now }.count
+        return UsageResets(
+            availableCount: availableCount - expired,
+            expirations: expirations.filter { $0 > now }
+        )
+    }
 }
 
 struct ProviderSnapshot: Equatable, Sendable {
@@ -364,6 +407,7 @@ struct ProviderSnapshot: Equatable, Sendable {
     let planName: String?
     let windows: [QuotaWindow]
     let billingUsage: BillingUsage?
+    let resets: UsageResets?
     let fetchedAt: Date
 
     init(
@@ -371,13 +415,22 @@ struct ProviderSnapshot: Equatable, Sendable {
         planName: String?,
         windows: [QuotaWindow],
         billingUsage: BillingUsage? = nil,
+        resets: UsageResets? = nil,
         fetchedAt: Date
     ) {
         self.provider = provider
         self.planName = planName
         self.windows = windows
         self.billingUsage = billingUsage
+        self.resets = resets
         self.fetchedAt = fetchedAt
+    }
+
+    /// Whether the panel has anything to show beyond the provider header.
+    var hasPanelContent: Bool {
+        !windows.isEmpty ||
+            billingUsage != nil ||
+            (resets?.availableCount ?? 0) > 0
     }
 
     var sessionWindow: QuotaWindow? {
@@ -399,6 +452,9 @@ struct ProviderSnapshot: Equatable, Sendable {
                 metric: billingUsage.menuBarMetric
             ))
         }
+        if resets != nil {
+            items.append(MenuBarItemID(provider: provider, metric: .resets))
+        }
         var seen: Set<MenuBarItemID> = []
         return items.filter { seen.insert($0).inserted }
     }
@@ -411,6 +467,9 @@ struct ProviderSnapshot: Equatable, Sendable {
             return .percentage(
                 displayMode.displayedPercent(from: window.usedPercent)
             )
+        }
+        if metric == .resets, let resets {
+            return .resets(available: resets.availableCount)
         }
         guard billingUsage?.menuBarMetric == metric else { return nil }
         return billingUsage?.menuBarValue(displayMode: displayMode)

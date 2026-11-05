@@ -46,11 +46,16 @@ final class ProviderTests: XCTestCase {
 
         XCTAssertEqual(snapshot.sessionWindow?.usedPercent, 31)
         let requests = await http.capturedRequests()
+        // The first read of a session also takes the hourly reset grants.
         XCTAssertEqual(requests.map(\.url), [
-            ClaudeAuthStore.usageURL,
+            ClaudeAuthStore.usageWithResetGrantsURL,
             ClaudeAuthStore.refreshURL,
-            ClaudeAuthStore.usageURL
+            ClaudeAuthStore.usageWithResetGrantsURL
         ])
+        XCTAssertEqual(
+            requests[0].headers["User-Agent"],
+            ClaudeUsageClient.userAgent
+        )
         let saved = try XCTUnwrap(keychain.currentValue(service: "Claude Code-credentials"))
         let savedDocument = try XCTUnwrap(
             ProviderParsing.decodeWithHexFallback(saved, as: ClaudeCredentialsDocument.self)
@@ -94,9 +99,11 @@ final class ProviderTests: XCTestCase {
                 XCTFail("Expected rate limit")
             } catch let failure as ProviderFailure {
                 XCTAssertEqual(failure.kind, .rateLimited)
+                // A short Retry-After still waits the five-minute minimum,
+                // because Anthropic keeps its own penalty for longer.
                 XCTAssertEqual(
                     failure.retryAt,
-                    now.addingTimeInterval(120)
+                    now.addingTimeInterval(300)
                 )
             } catch {
                 XCTFail("Unexpected error: \(error)")
@@ -156,7 +163,7 @@ final class ProviderTests: XCTestCase {
 
         let snapshot = try await provider.fetch()
 
-        XCTAssertEqual(snapshot.planName, "Pro 20x")
+        XCTAssertEqual(snapshot.planName, "Pro 200")
         XCTAssertEqual(snapshot.sessionWindow?.usedPercent, 9)
         let requests = await http.capturedRequests()
         XCTAssertEqual(requests.map(\.url), [

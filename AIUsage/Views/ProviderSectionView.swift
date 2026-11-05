@@ -16,8 +16,7 @@ struct ProviderSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             providerHeader
-            if let snapshot = state.snapshot,
-               !snapshot.windows.isEmpty || snapshot.billingUsage != nil {
+            if let snapshot = state.snapshot, snapshot.hasPanelContent {
                 if !snapshot.windows.isEmpty {
                     QuotaGrid(
                         windows: snapshot.windows,
@@ -31,6 +30,9 @@ struct ProviderSectionView: View {
                         usage: billingUsage,
                         displayMode: displayMode
                     )
+                }
+                if let resets = snapshot.resets, resets.availableCount > 0 {
+                    ResetsRow(resets: resets)
                 }
             } else if state.isRefreshing {
                 ProviderStatusRow(
@@ -209,6 +211,122 @@ private struct BillingUsageRow: View {
     }
 }
 
+enum CompactCountdown {
+    /// `1d 4h`, `4h 12m`, or `12m`; `nil` once the moment has passed.
+    static func text(until date: Date, from now: Date) -> String? {
+        let remaining = Int(date.timeIntervalSince(now))
+        guard remaining > 0 else { return nil }
+
+        let days = remaining / 86_400
+        let hours = (remaining % 86_400) / 3_600
+        let minutes = max(1, (remaining % 3_600) / 60)
+        if days > 0 {
+            return hours > 0 ? "\(days)d \(hours)h" : "\(days)d"
+        }
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+}
+
+struct ResetsPresentation: Equatable {
+    static let expiringSoonInterval: TimeInterval = 24 * 60 * 60
+
+    let valueText: String
+    let expiryText: String?
+    let isExpiringSoon: Bool
+    let helpText: String
+    let accessibilityValue: String
+
+    init(
+        resets: UsageResets,
+        now: Date,
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) {
+        let active = resets.active(at: now)
+        valueText = "\(active.availableCount) available"
+
+        if let next = active.nextExpiration,
+           let countdown = CompactCountdown.text(until: next, from: now) {
+            expiryText = "next expires in \(countdown)"
+            isExpiringSoon = next.timeIntervalSince(now) <= Self.expiringSoonInterval
+        } else {
+            expiryText = nil
+            isExpiringSoon = false
+        }
+
+        var style = Date.FormatStyle(date: .abbreviated, time: .shortened)
+        style.locale = locale
+        style.timeZone = timeZone
+        var details = active.expirations.map { "Expires \($0.formatted(style))" }
+        let unknown = active.availableCount - active.expirations.count
+        if unknown > 0 {
+            details.append(
+                unknown == 1
+                    ? "1 reset without a known expiration"
+                    : "\(unknown) resets without a known expiration"
+            )
+        }
+        helpText = (["Banked usage-limit resets. Redeem them in the provider's app."]
+            + details).joined(separator: "\n")
+        accessibilityValue = ([valueText] + details).joined(separator: ", ")
+    }
+}
+
+private struct ResetsRow: View {
+    let resets: UsageResets
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let presentation = ResetsPresentation(
+                resets: resets,
+                now: context.date
+            )
+
+            HStack(spacing: 7) {
+                Image(systemName: "arrow.counterclockwise")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 14, height: 14)
+
+                Text("Resets")
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 4) {
+                    Text(presentation.valueText)
+                        .fontWeight(.medium)
+                    if let expiry = presentation.expiryText {
+                        Text("·")
+                            .foregroundStyle(.tertiary)
+                        Text(expiry)
+                            .foregroundStyle(
+                                presentation.isExpiringSoon
+                                    ? AnyShapeStyle(UsagePalette.warning)
+                                    : AnyShapeStyle(.secondary)
+                            )
+                    }
+                }
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            }
+            .font(.caption)
+            .frame(maxWidth: .infinity, minHeight: 24)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 8)
+            .contentShape(Rectangle())
+            .help(presentation.helpText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Usage limit resets")
+            .accessibilityValue(presentation.accessibilityValue)
+        }
+    }
+}
+
 private struct QuotaGrid: View {
     let windows: [QuotaWindow]
     let displayMode: UsageDisplayMode
@@ -332,21 +450,10 @@ private struct QuotaTile: View {
     }
 
     private func resetText(_ date: Date, relativeTo now: Date) -> String {
-        let remaining = max(0, Int(date.timeIntervalSince(now)))
-        if remaining == 0 {
+        guard let countdown = CompactCountdown.text(until: date, from: now) else {
             return "Resetting"
         }
-
-        let days = remaining / 86_400
-        let hours = (remaining % 86_400) / 3_600
-        let minutes = max(1, (remaining % 3_600) / 60)
-        if days > 0 {
-            return hours > 0 ? "Reset \(days)d \(hours)h" : "Reset \(days)d"
-        }
-        if hours > 0 {
-            return "Reset \(hours)h \(minutes)m"
-        }
-        return "Reset \(minutes)m"
+        return "Reset \(countdown)"
     }
 
     private func accessibilityValue(relativeTo now: Date) -> String {
