@@ -25,7 +25,7 @@ manager before moving release duties to another Mac.
 ## Build the DMG and appcast
 
 ```bash
-version=0.2.1
+version=0.3.0
 ./scripts/package_release.sh "$version"
 ```
 

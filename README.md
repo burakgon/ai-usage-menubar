@@ -28,7 +28,7 @@
 </p>
 
 AI Usage shows Claude Code, Codex, Cursor, Antigravity, GitHub Copilot, Devin,
-and Grok limits and stays out of the way. No extra account, API key, local
+Grok, and Z.ai limits and stays out of the way. No extra account, API key, local
 server, telemetry, usage history, or background log scanning.
 
 ## Choose exactly what appears.
@@ -66,12 +66,16 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 
 - Claude Code session, weekly, Sonnet, and Fable limits
 - Codex session, weekly, Spark, and Spark weekly limits
-- Cursor total, Auto, and API usage
-- Antigravity Gemini and Claude pool limits
+- Banked Claude Code and Codex usage-limit resets, with a warning before the
+  next one expires
+- Cursor total, Auto, and API usage, plus on-demand spend
+- Antigravity Gemini, Argon, and Claude pool limits
 - GitHub Copilot credits, chat, and completions
 - Devin daily and weekly quota
 - Grok weekly quota
-- Claude Code extra usage and Codex credits when available
+- Z.ai GLM Coding Plan session, weekly, and web search limits
+- Claude Code extra usage in your billing currency and Codex credits when
+  available
 - Remaining or used percentages, switchable directly in the panel
 - Independent menu bar controls and metric choices for each provider
 - Configurable 1, 5, 15, 30, or 60-minute refresh and one-click manual refresh
@@ -108,10 +112,16 @@ To run without the installer, open `AIUsage.xcodeproj` in Xcode and run the
 AI Usage reuses credentials already created by supported tools, then requests
 quota data directly from each provider's first-party endpoint.
 
+- Z.ai uses the GLM Coding Plan key Claude Code or OpenCode is already
+  configured with, or `ZAI_API_KEY`. AI Usage never asks for a key.
+- When Google doesn't share an Antigravity account's quota, AI Usage reads it
+  from a running Antigravity app or `agy` CLI over its own loopback listener.
+
 - Credentials stay on your Mac.
 - Tokens are never printed, logged, or sent anywhere else.
 - Temporary failures keep the last successful values in memory and mark them
   stale.
+- Resets are shown read-only. Redeem them in the provider's own app.
 - Nothing is cached across launches.
 
 API-key-only Codex authentication can't read ChatGPT subscription usage.
@@ -127,6 +137,12 @@ Every provider can be shown or hidden independently. Under each provider,
 choose any metric it currently returns. A single metric shows only its value;
 multiple metrics use tiny labels to stay compact. **Weekly** is selected for
 Claude Code and Codex by default, and **Left** is the default number mode.
+When a selected metric is missing, such as Claude's session window on accounts
+that have none, the provider's default metric is shown instead.
+
+Select **Resets** to show a provider's banked reset count, such as `↻3`. The
+panel lists when each reset expires and turns the next expiration orange in its
+final 24 hours.
 
 Raw percentages are shown exactly as reported by the provider. Only progress
 bar drawing is clamped to `0...100`. Remaining usage is bounded to `0...100`
@@ -161,8 +177,8 @@ Release packaging and OTA feed maintenance are documented in
 
 Provider contracts and parts of the system-boundary implementation were
 adapted from [OpenUsage](https://github.com/robinebers/openusage), using stable
-tag `v0.7.6` and provider updates through commit
-`9d2bf09f10e21f769494a525a9d65c84d7aeb1df`.
+tag `v0.7.6`, local language-server discovery from tag `v0.7.16`, and provider
+updates through commit `fdf7a234b76b6a71522880cc9ab5b38044471698`.
 See [NOTICE](NOTICE) for attribution.
 
 ## License

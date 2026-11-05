@@ -15,7 +15,13 @@ body:
       options:
         - Claude Code
         - Codex
-        - Both
+        - Cursor
+        - Antigravity
+        - GitHub Copilot
+        - Devin
+        - Grok
+        - Z.ai
+        - More than one provider
         - App UI or menu bar
     validations:
       required: true
