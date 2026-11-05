@@ -13,7 +13,15 @@ updates.
 
 The Sparkle private key is never stored in this repository. The public key is
 embedded in `AIUsage/Info.plist`. Back up the private key in a secure secret
-manager before moving release duties to another Mac.
+manager before moving release duties to another Mac, and restore it with:
+
+```bash
+generate_keys --account ai-usage-menubar -f <exported-private-key-file>
+```
+
+Keychain asks each Sparkle tool for access to a restored key. To sign without
+those prompts, also set `SPARKLE_PRIVATE_KEY_FILE` to the exported key file when
+packaging; the public key is still checked against Keychain.
 
 ## Prepare a version
 
@@ -25,7 +33,7 @@ manager before moving release duties to another Mac.
 ## Build the DMG and appcast
 
 ```bash
-version=0.3.0
+version=0.3.1
 ./scripts/package_release.sh "$version"
 ```
 

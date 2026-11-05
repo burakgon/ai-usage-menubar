@@ -25,6 +25,16 @@ sparkle_framework="$built_application/Contents/Frameworks/Sparkle.framework"
 disk_image="$artifact_directory/AI-Usage.dmg"
 checksum="$artifact_directory/AI-Usage.dmg.sha256"
 sparkle_account="ai-usage-menubar"
+# Signing reads the key from Keychain unless SPARKLE_PRIVATE_KEY_FILE points
+# at an exported copy, which avoids a Keychain prompt for each Sparkle tool.
+sparkle_key_arguments=(--account "$sparkle_account")
+if [[ -n "${SPARKLE_PRIVATE_KEY_FILE:-}" ]]; then
+    if [[ ! -r "$SPARKLE_PRIVATE_KEY_FILE" ]]; then
+        printf 'SPARKLE_PRIVATE_KEY_FILE is not readable.\n' >&2
+        exit 1
+    fi
+    sparkle_key_arguments=(--ed-key-file "$SPARKLE_PRIVATE_KEY_FILE")
+fi
 
 if [[ ! -f "$release_notes" ]]; then
     printf 'Missing release notes: %s\n' "$release_notes" >&2
@@ -301,7 +311,7 @@ fi
 
 printf 'Generating signed Sparkle appcast…\n'
 "$generate_appcast" \
-    --account "$sparkle_account" \
+    "${sparkle_key_arguments[@]}" \
     --download-url-prefix \
     "https://github.com/burakgon/ai-usage-menubar/releases/download/v$version/" \
     --embed-release-notes \
@@ -312,7 +322,7 @@ printf 'Generating signed Sparkle appcast…\n'
 
 /usr/bin/xmllint --noout "$updates_directory/appcast.xml"
 "$sign_update" \
-    --account "$sparkle_account" \
+    "${sparkle_key_arguments[@]}" \
     --verify \
     "$updates_directory/appcast.xml"
 /usr/bin/ditto \
