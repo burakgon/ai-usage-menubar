@@ -463,6 +463,64 @@ final class AppPreferencesTests: XCTestCase {
     }
 
     @MainActor
+    func testSeededProvidersSurviveARelaunchWithoutChanges() throws {
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude, .codex]),
+            forKey: "trackedProviderIDs.v1"
+        )
+
+        _ = AppPreferences(defaults: defaults)
+        let relaunched = AppPreferences(defaults: defaults)
+
+        XCTAssertEqual(relaunched.trackedProviderIDs, Set(ProviderID.allCases))
+    }
+
+    @MainActor
+    func testProvidersDroppedByEarlierSeedingAreRestoredOnce() throws {
+        // A 0.2.x installation whose seeded providers were lost on relaunch.
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude, .codex]),
+            forKey: "trackedProviderIDs.v1"
+        )
+        defaults.set(true, forKey: "openUsageProvidersAdded.v1")
+
+        let restored = AppPreferences(defaults: defaults)
+        XCTAssertTrue(restored.isTracking(.antigravity))
+        XCTAssertTrue(restored.isTracking(.cursor))
+
+        restored.setTracking(false, for: .cursor)
+        let later = AppPreferences(defaults: defaults)
+        XCTAssertFalse(later.isTracking(.cursor))
+        XCTAssertTrue(later.isTracking(.antigravity))
+
+        // An installation that kept any of them keeps its choices.
+        for provider in [ProviderID.cursor, .antigravity, .copilot, .devin, .grok] {
+            later.setTracking(false, for: provider)
+        }
+        XCTAssertEqual(
+            AppPreferences(defaults: defaults).trackedProviderIDs,
+            [.claude, .codex, .zai]
+        )
+    }
+
+    @MainActor
+    func testZaiDroppedAfterAFirstLaunchIsRestoredOnce() throws {
+        // A 0.3.0 installation relaunched once: both seeds ran in memory only.
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude, .codex, .antigravity]),
+            forKey: "trackedProviderIDs.v1"
+        )
+        defaults.set(true, forKey: "openUsageProvidersAdded.v1")
+        defaults.set(true, forKey: "zaiProviderAdded.v1")
+
+        let restored = AppPreferences(defaults: defaults)
+        XCTAssertEqual(restored.trackedProviderIDs, [.claude, .codex, .antigravity, .zai])
+
+        restored.setTracking(false, for: .zai)
+        XCTAssertFalse(AppPreferences(defaults: defaults).isTracking(.zai))
+    }
+
+    @MainActor
     func testInvalidStoredScalarValuesFallBackSafely() {
         defaults.set("unknown", forKey: "menuBarSelection")
         defaults.set("unknown", forKey: "menuBarWindow")

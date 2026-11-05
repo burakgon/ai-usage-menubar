@@ -6,12 +6,7 @@ import Observation
 final class AppPreferences {
     private(set) var trackedProviderIDs: Set<ProviderID> {
         didSet {
-            defaults.set(
-                Self.encode(Array(trackedProviderIDs).sorted {
-                    $0.rawValue < $1.rawValue
-                }),
-                forKey: Key.trackedProviderIDs
-            )
+            Self.store(trackedProviderIDs, in: defaults)
         }
     }
 
@@ -82,16 +77,28 @@ final class AppPreferences {
         var initialTrackedProviders = Set(
             restoredProviders ?? ProviderID.allCases
         )
-        if restoredProviders != nil,
-           defaults.object(forKey: Key.openUsageProvidersAdded) == nil {
-            initialTrackedProviders.formUnion(Self.openUsageProviders)
-        }
-        if restoredProviders != nil,
-           defaults.object(forKey: Key.zaiProviderAdded) == nil {
-            initialTrackedProviders.insert(.zai)
+        if let restoredProviders {
+            let restored = Set(restoredProviders)
+            // Before 0.3.1 seeded providers stayed only in memory, so a
+            // relaunch dropped them. Seed them again once if they were lost.
+            let canRestore =
+                defaults.object(forKey: Key.seededProvidersRestored) == nil
+            if defaults.object(forKey: Key.openUsageProvidersAdded) == nil ||
+                (canRestore && restored.isDisjoint(with: Self.openUsageProviders)) {
+                initialTrackedProviders.formUnion(Self.openUsageProviders)
+            }
+            if defaults.object(forKey: Key.zaiProviderAdded) == nil ||
+                (canRestore && !restored.contains(.zai)) {
+                initialTrackedProviders.insert(.zai)
+            }
         }
         trackedProviderIDs = initialTrackedProviders
+        // Property observers do not run in an initializer.
+        if restoredProviders.map(Set.init) != initialTrackedProviders {
+            Self.store(initialTrackedProviders, in: defaults)
+        }
         defaults.set(true, forKey: Key.openUsageProvidersAdded)
+        defaults.set(true, forKey: Key.seededProvidersRestored)
         defaults.set(true, forKey: Key.zaiProviderAdded)
 
         let storedVisibleProviders = Self.decode(
@@ -426,6 +433,16 @@ final class AppPreferences {
         return unique(resolved)
     }
 
+    private static func store(
+        _ providers: Set<ProviderID>,
+        in defaults: UserDefaults
+    ) {
+        defaults.set(
+            encode(providers.sorted { $0.rawValue < $1.rawValue }),
+            forKey: Key.trackedProviderIDs
+        )
+    }
+
     private static func encode<Value: Encodable>(_ value: Value) -> Data? {
         try? JSONEncoder().encode(value)
     }
@@ -466,6 +483,7 @@ final class AppPreferences {
         static let openUsageProvidersAdded =
             "openUsageProvidersAdded.v1"
         static let zaiProviderAdded = "zaiProviderAdded.v1"
+        static let seededProvidersRestored = "seededProvidersRestored.v1"
         static let menuBarSelection = "menuBarSelection"
         static let menuBarWindow = "menuBarWindow"
         static let usageDisplayMode = "usageDisplayMode"
