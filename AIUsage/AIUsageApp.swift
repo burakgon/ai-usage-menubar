@@ -19,7 +19,10 @@ final class AIUsageAppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarController: MenuBarController?
 
     override init() {
-        services = AppServices(startingUpdater: !Self.isRunningTests)
+        services = AppServices(
+            startingUpdater: !Self.isRunningTests,
+            defaults: Self.isRunningTests ? Self.testHostDefaults() : .standard
+        )
         super.init()
     }
 
@@ -88,6 +91,16 @@ final class AIUsageAppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appMenuItem)
 
         NSApplication.shared.mainMenu = mainMenu
+    }
+
+    /// The test host shares the app's bundle identifier, so it must never
+    /// migrate or rewrite the settings of the installed app.
+    private static func testHostDefaults() -> UserDefaults {
+        let suiteName = "com.burakgon.aiusage.test-host"
+        // A suite name distinct from the bundle identifier always succeeds.
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
     }
 
     private static var isRunningTests: Bool {

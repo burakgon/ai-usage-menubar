@@ -1,3 +1,5 @@
+import Foundation
+
 @MainActor
 final class AppServices {
     let preferences: AppPreferences
@@ -5,8 +7,8 @@ final class AppServices {
     let launchAtLogin: LaunchAtLoginController
     let updateController: UpdateController
 
-    init(startingUpdater: Bool = true) {
-        let preferences = AppPreferences()
+    init(startingUpdater: Bool = true, defaults: UserDefaults = .standard) {
+        let preferences = AppPreferences(defaults: defaults)
         self.preferences = preferences
         store = UsageStore(
             refreshInterval: preferences.refreshInterval,
