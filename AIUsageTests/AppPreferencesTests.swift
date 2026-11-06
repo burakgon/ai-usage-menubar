@@ -559,4 +559,62 @@ final class AppPreferencesTests: XCTestCase {
             ]
         ]
     }
+
+    @MainActor
+    func testProviderOrderDefaultsToDeclaredOrder() {
+        let preferences = AppPreferences(defaults: defaults)
+        XCTAssertEqual(preferences.providerOrder, ProviderID.allCases)
+    }
+
+    @MainActor
+    func testMovingProviderPersistsAcrossRelaunch() {
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.moveProvider(.zai, to: .claude)
+
+        XCTAssertEqual(preferences.providerOrder.first, .zai)
+        XCTAssertEqual(
+            AppPreferences(defaults: defaults).providerOrder,
+            preferences.providerOrder
+        )
+    }
+
+    @MainActor
+    func testMovingDownPlacesProviderAtTargetPosition() {
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.moveProvider(.claude, to: .cursor)
+
+        XCTAssertEqual(
+            Array(preferences.providerOrder.prefix(3)),
+            [.codex, .cursor, .claude]
+        )
+    }
+
+    @MainActor
+    func testNormalizedOrderRepairsStoredValue() {
+        let order = AppPreferences.normalizedOrder([.zai, .zai, .claude])
+        XCTAssertEqual(Array(order.prefix(2)), [.zai, .claude])
+        XCTAssertEqual(Set(order), Set(ProviderID.allCases))
+        XCTAssertEqual(order.count, ProviderID.allCases.count)
+    }
+
+    @MainActor
+    func testMenuBarFollowsProviderOrder() {
+        let preferences = AppPreferences(defaults: defaults)
+        let items = ProviderID.allCases.map {
+            MenuBarItemID(provider: $0, metric: $0.defaultMenuBarMetric)
+        }
+        for item in items {
+            preferences.setMenuBarMetric(
+                true,
+                item: item,
+                availableItems: items
+            )
+        }
+        preferences.moveProvider(.zai, to: .claude)
+
+        XCTAssertEqual(
+            preferences.menuBarProviderConfigurations.first?.provider,
+            .zai
+        )
+    }
 }

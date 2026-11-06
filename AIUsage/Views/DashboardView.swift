@@ -10,6 +10,7 @@ struct DashboardView: View {
     let isCheckingForUpdates: Bool
     var checkForUpdates: @MainActor () -> Void = {}
     var openSettings: @MainActor () -> Void = {}
+    var providerOrder: [ProviderID] = ProviderID.allCases
 
     var body: some View {
         // Keep the container on the footer only. One spanning the scroll view
@@ -17,7 +18,8 @@ struct DashboardView: View {
         // the header and footer.
         DashboardContentView(
             store: store,
-            usageDisplayMode: $usageDisplayMode
+            usageDisplayMode: $usageDisplayMode,
+            providerOrder: providerOrder
         )
         .safeAreaBar(edge: .bottom, spacing: 0) {
             GlassEffectContainer(spacing: 10) {
@@ -149,6 +151,7 @@ struct RefreshButtonLabel: View {
 struct DashboardContentView: View {
     @Bindable var store: UsageStore
     @Binding var usageDisplayMode: UsageDisplayMode
+    var providerOrder: [ProviderID] = ProviderID.allCases
 
     var body: some View {
         VStack(spacing: 8) {
@@ -186,7 +189,7 @@ struct DashboardContentView: View {
     }
 
     private var visibleProviders: [ProviderID] {
-        ProviderID.allCases.filter(store.isProviderVisibleInDashboard)
+        providerOrder.filter(store.isProviderVisibleInDashboard)
     }
 
     private var header: some View {
