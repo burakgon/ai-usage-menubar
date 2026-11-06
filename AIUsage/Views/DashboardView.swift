@@ -64,6 +64,7 @@ struct DashboardView: View {
             if let version = availableUpdateVersion {
                 Button(action: checkForUpdates) {
                     Label("Update", systemImage: "arrow.down.circle.fill")
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.glassProminent)
                 .tint(UsagePalette.accent)
