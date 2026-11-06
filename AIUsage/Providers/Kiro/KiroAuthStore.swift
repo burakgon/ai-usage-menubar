@@ -32,23 +32,49 @@ struct KiroAuthState: Equatable, Sendable {
     var tokenRecord: KiroTokenRecord
     var tokenPath: String
     var clientCredentials: KiroClientCredentials?
+    /// The record exactly as it was loaded, before any refresh mutated
+    /// `tokenRecord`. Kiro refreshes this token too, so a write is only
+    /// allowed while this generation is still the one on disk.
+    let loadedRecord: KiroTokenRecord
+
+    init(
+        tokenRecord: KiroTokenRecord,
+        tokenPath: String,
+        clientCredentials: KiroClientCredentials? = nil,
+        loadedRecord: KiroTokenRecord? = nil
+    ) {
+        self.tokenRecord = tokenRecord
+        self.tokenPath = tokenPath
+        self.clientCredentials = clientCredentials
+        self.loadedRecord = loadedRecord ?? tokenRecord
+    }
 }
 
 struct KiroAuthStore: Sendable {
     static let primaryAuthPath = "~/.aws/sso/cache/kiro-auth-token.json"
     static let cliAuthPath = "~/.aws/sso/cache/kiro-auth-token-cli.json"
     static let ssoCacheDirectory = "~/.aws/sso/cache"
+    static let environmentName = "KIRO_API_KEY"
     static let refreshWindow: TimeInterval = 5 * 60
+    /// Kiro always stores a region, so this is only the fallback for a
+    /// hand-written record that omits one.
     static let defaultRegion = "us-east-1"
+    /// AWS region names only. The value is read from the token file and is
+    /// interpolated into the usage and OIDC hosts, so anything else is
+    /// treated as unusable instead of being sent to an invented host.
+    private static let regionPattern = #"^[a-z]{2}(-[a-z]+)+-\d+$"#
 
     let files: TextFileAccessing
+    let environment: EnvironmentReading
     let dateProvider: DateProviding
 
     init(
         files: TextFileAccessing = LocalTextFileAccessor(),
+        environment: EnvironmentReading = ProcessEnvironmentReader(),
         dateProvider: DateProviding = SystemDateProvider()
     ) {
         self.files = files
+        self.environment = environment
         self.dateProvider = dateProvider
     }
 
@@ -59,10 +85,12 @@ struct KiroAuthStore: Sendable {
         if let state = loadFromPath(Self.cliAuthPath) {
             return state
         }
-        if let apiKey = ProcessInfo.processInfo.environment["KIRO_API_KEY"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty {
+        if let apiKey = environment.value(for: Self.environmentName) {
             return KiroAuthState(
-                tokenRecord: KiroTokenRecord(accessToken: apiKey, authMethod: "API_KEY"),
+                tokenRecord: KiroTokenRecord(
+                    accessToken: apiKey,
+                    authMethod: "API_KEY"
+                ),
                 tokenPath: "",
                 clientCredentials: nil
             )
@@ -77,50 +105,52 @@ struct KiroAuthStore: Sendable {
               let record = try? JSONDecoder().decode(KiroTokenRecord.self, from: data) else {
             return nil
         }
-        guard (record.accessToken != nil && !record.accessToken!.isEmpty) ||
-              (record.refreshToken != nil && !record.refreshToken!.isEmpty) else {
+        guard !(record.accessToken ?? "").isEmpty ||
+              !(record.refreshToken ?? "").isEmpty else {
             return nil
         }
 
-        let creds = resolveClientCredentials(for: record)
         return KiroAuthState(
             tokenRecord: record,
             tokenPath: path,
-            clientCredentials: creds
+            clientCredentials: clientCredentials(for: record)
         )
     }
 
-    private func resolveClientCredentials(for record: KiroTokenRecord) -> KiroClientCredentials? {
-        if let hash = record.clientIdHash, !hash.isEmpty {
-            let candidate = "\(Self.ssoCacheDirectory)/\(hash).json"
-            if let creds = loadClientCredentials(at: candidate) {
-                return creds
-            }
+    /// Kiro's own registration only: the cache file named by the record's
+    /// `clientIdHash`. Other `*.json` files in the AWS SSO cache belong to
+    /// whatever else signed in through `aws sso login` on this Mac, and their
+    /// client secrets must never be sent in a refresh.
+    private func clientCredentials(
+        for record: KiroTokenRecord
+    ) -> KiroClientCredentials? {
+        let hash = (record.clientIdHash ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !hash.isEmpty,
+              !hash.contains("/"),
+              !hash.contains("..") else {
+            return nil
         }
-        let list = files.listDirectory(Self.ssoCacheDirectory)
-        for filePath in list where filePath.hasSuffix(".json") {
-            if filePath.hasSuffix("kiro-auth-token.json") ||
-               filePath.hasSuffix("kiro-auth-token-cli.json") ||
-               filePath.hasSuffix("kiro-connection.json") {
-                continue
-            }
-            if let creds = loadClientCredentials(at: filePath) {
-                return creds
-            }
-        }
-        return nil
+        return loadClientCredentials(at: "\(Self.ssoCacheDirectory)/\(hash).json")
     }
 
-    private func loadClientCredentials(at path: String) -> KiroClientCredentials? {
+    private func loadClientCredentials(
+        at path: String
+    ) -> KiroClientCredentials? {
         guard files.exists(path),
               let text = try? files.readText(path),
               let data = text.data(using: .utf8),
-              let creds = try? JSONDecoder().decode(KiroClientCredentials.self, from: data),
-              let clientId = creds.clientId, !clientId.isEmpty,
-              let clientSecret = creds.clientSecret, !clientSecret.isEmpty else {
+              let credentials = try? JSONDecoder().decode(
+                KiroClientCredentials.self,
+                from: data
+              ),
+              let clientID = credentials.clientId,
+              !clientID.isEmpty,
+              let clientSecret = credentials.clientSecret,
+              !clientSecret.isEmpty else {
             return nil
         }
-        return creds
+        return credentials
     }
 
     func needsRefresh(_ state: KiroAuthState) -> Bool {
@@ -129,26 +159,67 @@ struct KiroAuthStore: Sendable {
         }
         guard let expiresAt = state.tokenRecord.expiresAt,
               let expiration = ProviderParsing.date(expiresAt) else {
-            return false
+            return true
         }
-        return expiration.timeIntervalSince(dateProvider.now()) <= Self.refreshWindow
+        return expiration.timeIntervalSince(dateProvider.now()) <=
+            Self.refreshWindow
     }
 
-    func refresh(_ state: inout KiroAuthState, client: any HTTPClient) async throws -> Bool {
-        guard let refreshToken = state.tokenRecord.refreshToken, !refreshToken.isEmpty,
-              let clientId = state.clientCredentials?.clientId, !clientId.isEmpty,
-              let clientSecret = state.clientCredentials?.clientSecret, !clientSecret.isEmpty else {
+    /// The region to send Kiro requests to: the token record's own value when
+    /// it is a valid AWS region name, `us-east-1` otherwise.
+    func region(for state: KiroAuthState) -> String {
+        let region = (state.tokenRecord.region ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !region.isEmpty,
+              region.range(
+                of: Self.regionPattern,
+                options: .regularExpression
+              ) != nil else {
+            return Self.defaultRegion
+        }
+        return region
+    }
+
+    /// Whether this state can refresh at all: Kiro's own refresh token plus
+    /// the client registration stored beside it.
+    func canRefresh(_ state: KiroAuthState) -> Bool {
+        guard !(state.tokenRecord.refreshToken ?? "").isEmpty,
+              let clientID = state.clientCredentials?.clientId,
+              !clientID.isEmpty,
+              let clientSecret = state.clientCredentials?.clientSecret,
+              !clientSecret.isEmpty else {
             return false
         }
+        return true
+    }
 
-        let region = state.tokenRecord.region ?? Self.defaultRegion
-        guard let url = URL(string: "https://oidc.\(region).amazonaws.com/token") else {
+    /// Exchanges the stored refresh token through Kiro's own SSO OIDC
+    /// endpoint and writes the rotated tokens back into the file they were
+    /// loaded from, preserving unknown fields.
+    ///
+    /// Kiro refreshes this token too, so the file is re-read first and the
+    /// write is abandoned when it moved on since `state` was loaded.
+    @discardableResult
+    func refresh(
+        _ state: inout KiroAuthState,
+        client: any HTTPClient
+    ) async throws -> Bool {
+        guard canRefresh(state),
+              let refreshToken = state.tokenRecord.refreshToken,
+              let clientID = state.clientCredentials?.clientId,
+              let clientSecret = state.clientCredentials?.clientSecret else {
+            return false
+        }
+        let region = region(for: state)
+        guard let url = URL(
+            string: "https://oidc.\(region).amazonaws.com/token"
+        ) else {
             return false
         }
 
         let payload: [String: Any] = [
             "grantType": "refresh_token",
-            "clientId": clientId,
+            "clientId": clientID,
             "clientSecret": clientSecret,
             "refreshToken": refreshToken
         ]
@@ -156,53 +227,102 @@ struct KiroAuthStore: Sendable {
             return false
         }
 
-        let request = HTTPRequest(
-            method: .post,
-            url: url,
-            headers: ["Content-Type": "application/json"],
-            body: body
+        let response = try await client.send(
+            HTTPRequest(
+                method: .post,
+                url: url,
+                headers: ["Content-Type": "application/json"],
+                body: body
+            )
         )
-
-        let response = try await client.send(request)
         guard (200..<300).contains(response.statusCode) else {
-            if response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403 {
-                throw ProviderFailure(.authentication, "Kiro session expired. Sign in through Kiro.")
+            if response.statusCode == 400 ||
+                response.statusCode == 401 ||
+                response.statusCode == 403 {
+                throw ProviderFailure(
+                    .authentication,
+                    "Kiro session expired. Sign in through Kiro."
+                )
             }
             return false
         }
 
-        guard let json = (try? JSONSerialization.jsonObject(with: response.body)) as? [String: Any],
-              let newAccessToken = ProviderParsing.string(json["accessToken"]) else {
+        guard let json = (try? JSONSerialization.jsonObject(
+            with: response.body
+        )) as? [String: Any],
+            let accessToken = ProviderParsing.string(json["accessToken"]) else {
             return false
         }
 
-        state.tokenRecord.accessToken = newAccessToken
-        if let newRefresh = ProviderParsing.string(json["refreshToken"]) {
-            state.tokenRecord.refreshToken = newRefresh
+        state.tokenRecord.accessToken = accessToken
+        if let rotated = ProviderParsing.string(json["refreshToken"]) {
+            state.tokenRecord.refreshToken = rotated
         }
-        let expiresIn = ProviderParsing.double(json["expiresIn"]) ?? 3600
-        let newExpiresDate = dateProvider.now().addingTimeInterval(expiresIn)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        state.tokenRecord.expiresAt = formatter.string(from: newExpiresDate)
+        if let expiresIn = ProviderParsing.double(json["expiresIn"]) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [
+                .withInternetDateTime,
+                .withFractionalSeconds
+            ]
+            state.tokenRecord.expiresAt = formatter.string(
+                from: dateProvider.now().addingTimeInterval(expiresIn)
+            )
+        } else {
+            state.tokenRecord.expiresAt = nil
+        }
         if let profileArn = ProviderParsing.string(json["profileArn"]) {
             state.tokenRecord.profileArn = profileArn
         }
 
-        if !state.tokenPath.isEmpty && files.exists(state.tokenPath) {
-            if let existingText = try? files.readText(state.tokenPath),
-               let existingData = existingText.data(using: .utf8),
-               var existingJson = (try? JSONSerialization.jsonObject(with: existingData)) as? [String: Any] {
-                existingJson["accessToken"] = state.tokenRecord.accessToken
-                if let r = state.tokenRecord.refreshToken { existingJson["refreshToken"] = r }
-                existingJson["expiresAt"] = state.tokenRecord.expiresAt
-                if let p = state.tokenRecord.profileArn { existingJson["profileArn"] = p }
-                if let updatedData = try? JSONSerialization.data(withJSONObject: existingJson, options: [.prettyPrinted, .sortedKeys]),
-                   let updatedText = String(data: updatedData, encoding: .utf8) {
-                    try? files.writeText(state.tokenPath, updatedText)
-                }
-            }
-        }
+        try save(state)
         return true
+    }
+
+    /// Writes only when the file still holds the refresh token this refresh
+    /// started from. A moved-on file means Kiro signed in again while the
+    /// refresh was in flight, and its newer tokens win.
+    func save(_ state: KiroAuthState) throws {
+        guard !state.tokenPath.isEmpty,
+              files.exists(state.tokenPath),
+              let text = try? files.readText(state.tokenPath),
+              let data = text.data(using: .utf8),
+              var existing = try JSONSerialization.jsonObject(
+                with: data
+              ) as? [String: Any] else {
+            throw ProviderFailure(
+                .storage,
+                "Kiro credentials could not be updated."
+            )
+        }
+        guard existing["refreshToken"] as? String ==
+                state.loadedRecord.refreshToken else {
+            throw ProviderFailure(
+                .storage,
+                "Kiro login changed during refresh. Refresh again."
+            )
+        }
+
+        existing["accessToken"] = state.tokenRecord.accessToken
+        existing["refreshToken"] = state.tokenRecord.refreshToken
+        if let expiresAt = state.tokenRecord.expiresAt {
+            existing["expiresAt"] = expiresAt
+        } else {
+            existing.removeValue(forKey: "expiresAt")
+        }
+        if let profileArn = state.tokenRecord.profileArn {
+            existing["profileArn"] = profileArn
+        }
+
+        let updated = try JSONSerialization.data(
+            withJSONObject: existing,
+            options: [.prettyPrinted, .sortedKeys]
+        )
+        guard let output = String(data: updated, encoding: .utf8) else {
+            throw ProviderFailure(
+                .storage,
+                "Kiro credentials could not be encoded."
+            )
+        }
+        try files.writeText(state.tokenPath, output)
     }
 }

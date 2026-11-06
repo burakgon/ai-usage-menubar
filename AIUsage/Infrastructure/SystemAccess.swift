@@ -6,13 +6,19 @@ protocol EnvironmentReading: Sendable {
 }
 
 struct ProcessEnvironmentReader: EnvironmentReading {
+    let shell: LoginShellEnvironment
+
+    init(shell: LoginShellEnvironment = .shared) {
+        self.shell = shell
+    }
+
     func value(for name: String) -> String? {
         if let value = ProcessInfo.processInfo.environment[name]?
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !value.isEmpty {
             return value
         }
-        return LoginShellEnvironment.shared.value(for: name)
+        return shell.value(for: name)
     }
 }
 
@@ -22,6 +28,7 @@ final class LoginShellEnvironment: @unchecked Sendable {
     private static let supportedNames = [
         "CLAUDE_CONFIG_DIR",
         "CODEX_HOME",
+        "KIRO_API_KEY",
         "PATH",
         "ZAI_API_KEY"
     ]
@@ -174,7 +181,6 @@ protocol TextFileAccessing: Sendable {
     func exists(_ path: String) -> Bool
     func readText(_ path: String) throws -> String
     func writeText(_ path: String, _ text: String) throws
-    func listDirectory(_ path: String) -> [String]
 }
 
 struct LocalTextFileAccessor: TextFileAccessing {
@@ -186,16 +192,6 @@ struct LocalTextFileAccessor: TextFileAccessing {
 
     func readText(_ path: String) throws -> String {
         try String(contentsOfFile: expandHome(path), encoding: .utf8)
-    }
-
-    func listDirectory(_ path: String) -> [String] {
-        let displayPrefix = path.hasSuffix("/") ? String(path.dropLast()) : path
-        guard let names = try? FileManager.default.contentsOfDirectory(
-            atPath: expandHome(path)
-        ) else {
-            return []
-        }
-        return names.sorted().map { "\(displayPrefix)/\($0)" }
     }
 
     func writeText(_ path: String, _ text: String) throws {

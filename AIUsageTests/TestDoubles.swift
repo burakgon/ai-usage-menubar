@@ -48,16 +48,6 @@ final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
         lock.withLock { storage[path] = text }
     }
 
-    func listDirectory(_ path: String) -> [String] {
-        lock.withLock {
-            let prefix = (path.hasSuffix("/") ? String(path.dropLast()) : path) + "/"
-            return storage.keys.filter {
-                $0.hasPrefix(prefix) &&
-                    !$0.dropFirst(prefix.count).contains("/")
-            }.sorted()
-        }
-    }
-
     func value(at path: String) -> String? {
         lock.withLock { storage[path] }
     }
