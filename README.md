@@ -10,7 +10,7 @@
 <p align="center">
   <b>Every AI coding limit, right in your menu bar.</b><br>
   See how much of Claude Code, Codex, Cursor, Antigravity, GitHub Copilot,<br>
-  Devin, Grok, and Z.ai you have left, and when it resets.
+  Devin, Grok, Kiro, and Z.ai you have left, and when it resets.
 </p>
 
 <p align="center">
@@ -51,7 +51,7 @@ your tools already have, so there is nothing to set up.
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/images/providers-dark.webp">
-    <img src="docs/images/providers-light.webp" width="880" alt="Usage cards for all eight supported tools: Claude Code, Codex, Cursor, Antigravity, GitHub Copilot, Devin, Grok, and Z.ai, each with its limits, plan, and reset times.">
+    <img src="docs/images/providers-light.webp" width="880" alt="Usage cards for all nine supported tools: Claude Code, Codex, Cursor, Antigravity, GitHub Copilot, Devin, Grok, Kiro, and Z.ai, each with its limits, plan, and reset times.">
   </picture>
 </p>
 
@@ -64,6 +64,7 @@ your tools already have, so there is nothing to set up.
 | **GitHub Copilot** | Credits, chat, and completions | Copilot's editor sign-in or the GitHub CLI |
 | **Devin** | Daily and weekly quota | Devin's login |
 | **Grok** | Weekly quota | Grok CLI's login |
+| **Kiro** | Credits, free-trial, session, weekly, and daily quota, overage spend | Kiro's or `kiro-cli`'s AWS SSO login, or `KIRO_API_KEY` |
 | **Z.ai** | GLM Coding Plan session, weekly, and web search limits | The key Claude Code or OpenCode uses, or `ZAI_API_KEY` |
 
 Only tools installed on your Mac get a card. A tool that's signed out stays
@@ -114,6 +115,8 @@ time.
 - Requests go only to each provider's own usage endpoint. There is no AI Usage
   server, analytics, or telemetry.
 - Tokens are never printed, logged, or sent anywhere else.
+- Kiro's stored AWS SSO token is refreshed through the client registration Kiro
+  registered itself, never through another tool's registration in the same cache.
 - It's read-only. Resets are shown but never redeemed, and nothing in your
   accounts changes.
 - Usage lives in memory and isn't kept across launches. When a refresh fails,
