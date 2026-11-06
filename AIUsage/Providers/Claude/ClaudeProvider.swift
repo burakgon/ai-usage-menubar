@@ -42,6 +42,7 @@ actor ClaudeProvider: UsageProvider {
 
         var generation = ClaudeCredentialGeneration(candidates)
         var lastAuthenticationFailure: ProviderFailure?
+        var lastRateLimitFailure: ProviderFailure?
 
         for candidate in candidates {
             do {
@@ -51,10 +52,13 @@ actor ClaudeProvider: UsageProvider {
             } catch let failure as ProviderFailure where failure.kind == .authentication {
                 lastAuthenticationFailure = failure
                 continue
+            } catch let failure as ProviderFailure where failure.kind == .rateLimited {
+                lastRateLimitFailure = failure
+                continue
             }
         }
 
-        throw lastAuthenticationFailure ?? ProviderFailure(
+        throw lastRateLimitFailure ?? lastAuthenticationFailure ?? ProviderFailure(
             .authentication,
             "Not logged in. Run `claude` to authenticate."
         )
@@ -83,7 +87,8 @@ actor ClaudeProvider: UsageProvider {
         }
 
         var expectedGeneration = generation
-        if authStore.needsRefresh(state.oauth),
+        if state.source.refreshesProactively,
+           authStore.needsRefresh(state.oauth),
            let refreshToken = nonEmpty(state.oauth.refreshToken) {
             try await refreshAccessToken(
                 state: &state,
@@ -160,16 +165,36 @@ actor ClaudeProvider: UsageProvider {
             resetGrants = ClaudeUsageMapper.resetGrants(from: response)
             resetGrantsCheckedAt = fetchedAt
         }
-        let snapshot = try ClaudeUsageMapper.map(
+        var snapshot = try ClaudeUsageMapper.map(
             response: response,
             credentials: state.oauth,
             resets: resetGrants?.resets(at: fetchedAt),
             now: fetchedAt
         )
+        if snapshot.planName == nil, let accessToken = nonEmpty(state.oauth.accessToken) {
+            snapshot = snapshot.withPlanName(
+                await profilePlanName(accessToken: accessToken)
+            )
+        }
         rateLimitedUntil = nil
         rateLimitStrikes = 0
         generation = expectedGeneration
         return snapshot
+    }
+
+    private func profilePlanName(accessToken: String) async -> String? {
+        let response: HTTPResponse
+        do {
+            response = try await client.fetchProfile(accessToken: accessToken)
+        } catch {
+            return nil
+        }
+        guard (200..<300).contains(response.statusCode),
+              let body = try? ProviderParsing.object(from: response.body)
+        else {
+            return nil
+        }
+        return ClaudeUsageMapper.planName(fromProfile: body)
     }
 
     /// Five minutes, doubling with each consecutive limit, up to an hour.

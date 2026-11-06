@@ -53,6 +53,91 @@ final class AuthStoreTests: XCTestCase {
         XCTAssertTrue(store.hasUsageScope(ClaudeOAuth(scopes: ["user:profile"])))
     }
 
+    func testClaudeCLIProxyCredentialsPrecedeAndDeduplicateOtherSources() {
+        let fileOAuth = ClaudeOAuth(
+            accessToken: "proxy",
+            refreshToken: "file-refresh",
+            expiresAt: nil,
+            subscriptionType: nil,
+            rateLimitTier: nil,
+            scopes: nil
+        )
+        let files = MemoryFiles([
+            "~/.cli-proxy-api/claude-work.json": """
+            {"type":"claude","access_token":"proxy","refresh_token":"refresh","expired":"2027-01-15T00:00:00Z","email":"user@example.test","disabled":false}
+            """,
+            "~/.cli-proxy-api/claude-disabled.json": """
+            {"type":"claude","access_token":"disabled","disabled":true}
+            """,
+            "~/.cli-proxy-api/claude-other-type.json": """
+            {"type":"codex","access_token":"other"}
+            """,
+            "~/.cli-proxy-api/other.json": """
+            {"type":"claude","access_token":"not-listed"}
+            """,
+            "~/.claude/.credentials.json":
+                encodedJSON(ClaudeCredentialsDocument(claudeAiOauth: fileOAuth))
+        ])
+        let store = ClaudeAuthStore(
+            environment: MockEnvironment(),
+            files: files,
+            keychain: MemoryKeychain()
+        )
+
+        let candidates = store.loadCandidates()
+
+        XCTAssertEqual(candidates.map(\.oauth.accessToken), ["proxy"])
+        XCTAssertEqual(
+            candidates.first?.source,
+            .cliProxy(path: "~/.cli-proxy-api/claude-work.json")
+        )
+        XCTAssertEqual(candidates.first?.oauth.refreshToken, "refresh")
+        XCTAssertNotNil(candidates.first?.oauth.expiresAt)
+    }
+
+    func testClaudeCLIProxySaveMergesTokensIntoTheOriginalDocument() throws {
+        let path = "~/.cli-proxy-api/claude-work.json"
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let files = MemoryFiles([
+            path: """
+            {"type":"claude","access_token":"old","refresh_token":"refresh","expired":"2026-01-01T00:00:00Z","email":"user@example.test","nested":{"keep":true},"other_account":{"access_token":"other"}}
+            """
+        ])
+        let store = ClaudeAuthStore(
+            environment: MockEnvironment(),
+            files: files,
+            keychain: MemoryKeychain(),
+            dateProvider: FixedDateProvider(value: now)
+        )
+        var state = try XCTUnwrap(store.loadCandidates().first)
+        let generation = store.credentialGeneration()
+        state.oauth.accessToken = "new"
+        state.oauth.refreshToken = "rotated"
+        state.oauth.expiresAt = now.addingTimeInterval(3_600)
+            .timeIntervalSince1970 * 1_000
+
+        XCTAssertTrue(try store.save(state, ifUnchanged: generation))
+
+        let data = Data(try files.readText(path).utf8)
+        let saved = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        XCTAssertEqual(saved["access_token"] as? String, "new")
+        XCTAssertEqual(saved["refresh_token"] as? String, "rotated")
+        XCTAssertEqual(saved["email"] as? String, "user@example.test")
+        XCTAssertEqual(
+            (saved["nested"] as? [String: Bool])?["keep"],
+            true
+        )
+        XCTAssertEqual(
+            (saved["other_account"] as? [String: Any])?["access_token"] as? String,
+            "other"
+        )
+        XCTAssertEqual(saved["type"] as? String, "claude")
+        XCTAssertNotNil(saved["expired"] as? String)
+        XCTAssertNotNil(saved["last_refresh"] as? String)
+    }
+
     func testCodexHomeOverridesDefaultPaths() {
         let store = CodexAuthStore(
             environment: MockEnvironment(values: ["CODEX_HOME": "/tmp/custom-codex"]),

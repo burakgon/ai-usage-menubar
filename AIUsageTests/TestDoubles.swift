@@ -44,6 +44,22 @@ final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
         }
     }
 
+    func readData(_ path: String) throws -> Data {
+        Data(try readText(path).utf8)
+    }
+
+    func listDirectory(_ path: String) -> [String] {
+        let prefix = path.hasSuffix("/") ? path : path + "/"
+        return lock.withLock {
+            storage.keys
+                .filter { key in
+                    key.hasPrefix(prefix) &&
+                        !key.dropFirst(prefix.count).contains("/")
+                }
+                .sorted()
+        }
+    }
+
     func writeText(_ path: String, _ text: String) throws {
         lock.withLock { storage[path] = text }
     }

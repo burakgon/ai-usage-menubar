@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 /// Claude Code's banked usage-limit reset grants (`cedar_ember`).
@@ -96,16 +97,38 @@ enum ClaudeUsageMapper {
 
     /// Anthropic now sells the 5x and 20x Max plans as Max and Ultra.
     static func planName(_ credentials: ClaudeOAuth) -> String? {
-        guard var raw = credentials.subscriptionType?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
-            return nil
+        formattedPlan(
+            subscriptionType: credentials.subscriptionType,
+            rateLimitTier: credentials.rateLimitTier
+        )
+    }
+
+    static func planName(fromProfile profile: [String: Any]?) -> String? {
+        guard let profile else { return nil }
+        let organization = ProviderParsing.object(profile["organization"]) ?? [:]
+        let account = ProviderParsing.object(profile["account"]) ?? [:]
+        let type = ProviderParsing.string(organization["organization_type"])
+            ?? ProviderParsing.string(organization["subscription_type"])
+            ?? boolFlag(account["has_claude_max"], name: "max")
+            ?? boolFlag(account["has_claude_pro"], name: "pro")
+        return formattedPlan(
+            subscriptionType: strippedClaudePrefix(type),
+            rateLimitTier: ProviderParsing.string(organization["rate_limit_tier"])
+        )
+    }
+
+    static func formattedPlan(
+        subscriptionType: String?,
+        rateLimitTier: String?
+    ) -> String? {
+        guard var raw = nonEmpty(subscriptionType) else {
+            return nxFragment(rateLimitTier)
         }
         if raw.lowercased().hasPrefix("claude_") {
             raw.removeFirst("claude_".count)
         }
         let base = ProviderParsing.titleCaseIdentifier(raw)
-        let tier = credentials.rateLimitTier?.lowercased() ?? ""
+        let tier = rateLimitTier?.lowercased() ?? ""
         if base == "Ultra" ||
             (base == "Max" && (tier.contains("ultra") || tier.contains("20x"))) {
             return "Ultra"
@@ -113,11 +136,52 @@ enum ClaudeUsageMapper {
         if base == "Max" {
             return "Max"
         }
-        guard let range = tier.range(of: #"\d+x"#, options: .regularExpression)
-        else {
+        guard let multiplier = nxFragment(rateLimitTier) else {
             return base
         }
-        return "\(base) \(tier[range])"
+        return "\(base) \(multiplier)"
+    }
+
+    private static func strippedClaudePrefix(_ value: String?) -> String? {
+        guard let value = nonEmpty(value) else { return nil }
+        if let range = value.range(
+            of: "claude_",
+            options: [.anchored, .caseInsensitive]
+        ) {
+            return String(value[range.upperBound...])
+        }
+        return value
+    }
+
+    private static func nxFragment(_ value: String?) -> String? {
+        guard let value = nonEmpty(value),
+              let range = value.range(
+                  of: #"\d+x"#,
+                  options: .regularExpression
+              ) else {
+            return nil
+        }
+        return String(value[range])
+    }
+
+    private static func boolFlag(_ value: Any?, name: String) -> String? {
+        if value as? Bool == true {
+            return name
+        }
+        if let number = value as? NSNumber,
+           CFGetTypeID(number) == CFBooleanGetTypeID(),
+           number.boolValue {
+            return name
+        }
+        return nil
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 
     private static func appendWindow(

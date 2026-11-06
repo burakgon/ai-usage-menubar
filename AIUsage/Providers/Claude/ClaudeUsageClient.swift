@@ -30,11 +30,28 @@ struct ClaudeUsageClient: Sendable {
         accessToken: String,
         includingResetGrants: Bool = false
     ) async throws -> HTTPResponse {
-        try await http.send(HTTPRequest(
-            method: .get,
-            url: includingResetGrants
+        try await sendOAuthGET(
+            includingResetGrants
                 ? ClaudeAuthStore.usageWithResetGrantsURL
                 : ClaudeAuthStore.usageURL,
+            accessToken: accessToken
+        )
+    }
+
+    func fetchProfile(accessToken: String) async throws -> HTTPResponse {
+        try await sendOAuthGET(
+            ClaudeAuthStore.profileURL,
+            accessToken: accessToken
+        )
+    }
+
+    private func sendOAuthGET(
+        _ url: URL,
+        accessToken: String
+    ) async throws -> HTTPResponse {
+        try await http.send(HTTPRequest(
+            method: .get,
+            url: url,
             headers: [
                 "Authorization": "Bearer \(accessToken.trimmingCharacters(in: .whitespacesAndNewlines))",
                 "Accept": "application/json",

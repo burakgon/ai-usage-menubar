@@ -378,6 +378,34 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [20, 65])
     }
 
+    func testClaudeProfilePlanNamePrefersOrganizationTier() {
+        XCTAssertEqual(
+            ClaudeUsageMapper.planName(fromProfile: [
+                "organization": [
+                    "organization_type": "claude_max",
+                    "rate_limit_tier": "default_claude_max_20x"
+                ]
+            ]),
+            "Ultra"
+        )
+        XCTAssertEqual(
+            ClaudeUsageMapper.planName(fromProfile: [
+                "account": ["has_claude_max": true]
+            ]),
+            "Max"
+        )
+        XCTAssertEqual(
+            ClaudeUsageMapper.planName(fromProfile: [
+                "account": ["has_claude_pro": true],
+                "organization": [
+                    "rate_limit_tier": "default_claude_pro_5x"
+                ]
+            ]),
+            "Pro 5x"
+        )
+        XCTAssertNil(ClaudeUsageMapper.planName(fromProfile: nil))
+    }
+
     func testGrokMapsWeeklyPoolAndPlan() throws {
         let snapshot = try GrokUsageMapper.map(
             response: httpResponse(json: """

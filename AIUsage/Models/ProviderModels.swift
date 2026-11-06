@@ -71,7 +71,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     private var installationIndicators: [String] {
         switch self {
         case .claude:
-            ["~/.claude", "~/.config/claude"]
+            ["~/.claude", "~/.config/claude", "~/.cli-proxy-api"]
         case .codex:
             ["~/.codex", "~/.config/codex"]
         case .cursor:
@@ -443,6 +443,17 @@ struct ProviderSnapshot: Equatable, Sendable {
         self.billingUsage = billingUsage
         self.resets = resets
         self.fetchedAt = fetchedAt
+    }
+
+    func withPlanName(_ planName: String?) -> ProviderSnapshot {
+        ProviderSnapshot(
+            provider: provider,
+            planName: planName,
+            windows: windows,
+            billingUsage: billingUsage,
+            resets: resets,
+            fetchedAt: fetchedAt
+        )
     }
 
     /// Whether the panel has anything to show beyond the provider header.

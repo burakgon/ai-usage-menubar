@@ -18,11 +18,20 @@ struct ClaudeCredentialState: Equatable, Sendable {
         case file
         case keychainCurrentUser(service: String)
         case keychainLegacy(service: String)
+        case cliProxy(path: String)
+
+        var refreshesProactively: Bool {
+            switch self {
+            case .cliProxy: false
+            case .file, .keychainCurrentUser, .keychainLegacy: true
+            }
+        }
     }
 
     var oauth: ClaudeOAuth
     let source: Source
     let fullDocument: ClaudeCredentialsDocument?
+    let rawJSON: Data?
 
     var hasUsableAccessToken: Bool {
         oauth.accessToken?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -54,6 +63,7 @@ struct ClaudeCredentialGeneration: Equatable, Sendable {
 
 struct ClaudeAuthStore: Sendable {
     static let usageURL = URL(string: "https://api.anthropic.com/api/oauth/usage")!
+    static let profileURL = URL(string: "https://api.anthropic.com/api/oauth/profile")!
     /// The same usage read with Claude Code's reset-grant inventory
     /// (`cedar_ember`) included. Anthropic throttles this variant when it is
     /// polled, so it replaces the plain read at most once an hour.
@@ -63,6 +73,7 @@ struct ClaudeAuthStore: Sendable {
     static let refreshURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
     static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
     static let requiredUsageScope = "user:profile"
+    static let cliProxyDirectory = "~/.cli-proxy-api"
 
     let environment: EnvironmentReading
     let files: TextFileAccessing
@@ -83,13 +94,14 @@ struct ClaudeAuthStore: Sendable {
 
     func loadCandidates() -> [ClaudeCredentialState] {
         var candidates: [ClaudeCredentialState] = []
+        candidates.append(contentsOf: loadCLIProxyCredentials())
         if let keychain = loadKeychainCredentials() {
             candidates.append(keychain)
         }
         if let file = loadFileCredentials() {
             candidates.append(file)
         }
-        return candidates
+        return uniquedByAccessToken(candidates)
     }
 
     func credentialGeneration() -> ClaudeCredentialGeneration {
@@ -126,6 +138,8 @@ struct ClaudeAuthStore: Sendable {
             try keychain.writeGenericPasswordForCurrentUser(service: service, value: text)
         case .keychainLegacy(let service):
             try keychain.writeGenericPassword(service: service, value: text)
+        case .cliProxy(let path):
+            try files.writeText(path, encodeCLIProxyDocument(state))
         }
         return true
     }
@@ -174,7 +188,108 @@ struct ClaudeAuthStore: Sendable {
         else {
             return nil
         }
-        return ClaudeCredentialState(oauth: oauth, source: source, fullDocument: document)
+        return ClaudeCredentialState(
+            oauth: oauth,
+            source: source,
+            fullDocument: document,
+            rawJSON: nil
+        )
+    }
+
+    private func loadCLIProxyCredentials() -> [ClaudeCredentialState] {
+        files.listDirectory(Self.cliProxyDirectory)
+            .filter(isCLIProxyClaudeFile)
+            .compactMap(loadCLIProxyCredential(at:))
+    }
+
+    private func isCLIProxyClaudeFile(_ path: String) -> Bool {
+        let name = URL(fileURLWithPath: path).lastPathComponent.lowercased()
+        return name.hasPrefix("claude-") && name.hasSuffix(".json")
+    }
+
+    private func loadCLIProxyCredential(at path: String) -> ClaudeCredentialState? {
+        guard
+            let text = try? files.readText(path),
+            let data = text.data(using: .utf8),
+            let object = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any]
+        else {
+            return nil
+        }
+        if object["disabled"] as? Bool == true {
+            return nil
+        }
+        if let type = ProviderParsing.string(object["type"]),
+           type.caseInsensitiveCompare("claude") != .orderedSame {
+            return nil
+        }
+        guard let accessToken = ProviderParsing.string(object["access_token"]),
+              !accessToken.isEmpty else {
+            return nil
+        }
+        let oauth = ClaudeOAuth(
+            accessToken: accessToken,
+            refreshToken: ProviderParsing.string(object["refresh_token"]),
+            expiresAt: ProviderParsing.date(
+                object["expired"] ?? object["expires_at"]
+            ).map { $0.timeIntervalSince1970 * 1_000 },
+            subscriptionType: nil,
+            rateLimitTier: nil,
+            scopes: nil
+        )
+        return ClaudeCredentialState(
+            oauth: oauth,
+            source: .cliProxy(path: path),
+            fullDocument: nil,
+            rawJSON: data
+        )
+    }
+
+    private func encodeCLIProxyDocument(
+        _ state: ClaudeCredentialState
+    ) throws -> String {
+        var object: [String: Any]
+        if let rawJSON = state.rawJSON,
+           let parsed = try? JSONSerialization.jsonObject(with: rawJSON)
+            as? [String: Any] {
+            object = parsed
+        } else {
+            object = [:]
+        }
+        object["access_token"] = state.oauth.accessToken ?? ""
+        if let refreshToken = state.oauth.refreshToken, !refreshToken.isEmpty {
+            object["refresh_token"] = refreshToken
+        }
+        if let expiresAt = state.oauth.expiresAt {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime]
+            let date = Date(timeIntervalSince1970: expiresAt / 1_000)
+            object["expired"] = formatter.string(from: date)
+            object["last_refresh"] = formatter.string(from: dateProvider.now())
+        }
+        object["type"] = object["type"] ?? "claude"
+        let data = try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.prettyPrinted, .withoutEscapingSlashes]
+        )
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw ProviderFailure(
+                .storage,
+                "Claude credentials could not be encoded."
+            )
+        }
+        return text
+    }
+
+    private func uniquedByAccessToken(
+        _ candidates: [ClaudeCredentialState]
+    ) -> [ClaudeCredentialState] {
+        var seen = Set<String>()
+        return candidates.filter { candidate in
+            let token = candidate.oauth.accessToken?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return seen.insert(token).inserted
+        }
     }
 
     private func keychainServiceCandidates() -> [String] {
