@@ -41,6 +41,98 @@ final class AuthStoreTests: XCTestCase {
         XCTAssertTrue(keychain.genericReads.isEmpty)
     }
 
+    func testClaudeRefreshPreservesTheRestOfTheCredentialsDocument() throws {
+        let service = "Claude Code-credentials"
+        let login = """
+        "claudeAiOauth":{"accessToken":"old-access","refreshToken":"old-refresh",\
+        "expiresAt":1800000000000,"scopes":["user:profile"],"future":{"nested":true}}
+        """
+        func document(mcpAccessToken: String) -> String {
+            """
+            {\(login),"mcpOAuth":{"server|0123abcd":{"serverName":"server",\
+            "serverUrl":"https://mcp.example.com/mcp","accessToken":"\(mcpAccessToken)",\
+            "refreshToken":"mcp-refresh","expiresAt":1800003600000,\
+            "discoveryState":{"oauthMetadataFound":true,"authServerMetadataUrl":null}}},\
+            "other":42}
+            """
+        }
+        let keychain = MemoryKeychain(currentUser: [
+            service: document(mcpAccessToken: "mcp-access")
+        ])
+        let store = ClaudeAuthStore(
+            environment: MockEnvironment(),
+            files: MemoryFiles(),
+            keychain: keychain
+        )
+        var state = try XCTUnwrap(store.loadCandidates().first)
+        let generation = store.credentialGeneration()
+        // Claude Code rotates an MCP login while the Claude refresh is in flight.
+        try keychain.writeGenericPasswordForCurrentUser(
+            service: service,
+            value: document(mcpAccessToken: "mcp-rotated")
+        )
+        state.oauth.accessToken = "new-access"
+        state.oauth.refreshToken = "new-refresh"
+
+        XCTAssertTrue(try store.save(state, ifUnchanged: generation))
+
+        let saved = try XCTUnwrap(keychain.currentValue(service: service))
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any]
+        )
+        let savedLogin = try XCTUnwrap(object["claudeAiOauth"] as? [String: Any])
+        XCTAssertEqual(savedLogin["accessToken"] as? String, "new-access")
+        XCTAssertEqual(savedLogin["refreshToken"] as? String, "new-refresh")
+        XCTAssertEqual(savedLogin["expiresAt"] as? Double, 1_800_000_000_000)
+        XCTAssertEqual(savedLogin["scopes"] as? [String], ["user:profile"])
+        XCTAssertEqual(savedLogin["future"] as? [String: Bool], ["nested": true])
+        let expected = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: Data(document(mcpAccessToken: "mcp-rotated").utf8)
+            ) as? [String: Any]
+        )
+        XCTAssertEqual(
+            object["mcpOAuth"] as? NSDictionary,
+            expected["mcpOAuth"] as? NSDictionary
+        )
+        XCTAssertEqual(object["other"] as? Int, 42)
+        XCTAssertFalse(saved.contains("\\/"))
+    }
+
+    func testClaudeRefreshPreservesAHexEncodedCredentialsDocument() throws {
+        let service = "Claude Code-credentials"
+        let json = """
+        {"claudeAiOauth":{"accessToken":"old-access","refreshToken":"old-refresh"},\
+        "mcpOAuth":{"server|0123abcd":{"accessToken":"mcp-access"}}}
+        """
+        let keychain = MemoryKeychain(currentUser: [
+            service: Data(json.utf8).map { String(format: "%02x", $0) }.joined()
+        ])
+        let store = ClaudeAuthStore(
+            environment: MockEnvironment(),
+            files: MemoryFiles(),
+            keychain: keychain
+        )
+        var state = try XCTUnwrap(store.loadCandidates().first)
+        let generation = store.credentialGeneration()
+        state.oauth.accessToken = "new-access"
+
+        XCTAssertTrue(try store.save(state, ifUnchanged: generation))
+
+        let saved = try XCTUnwrap(keychain.currentValue(service: service))
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(saved.utf8)) as? [String: Any]
+        )
+        XCTAssertEqual(
+            (object["claudeAiOauth"] as? [String: Any])?["accessToken"] as? String,
+            "new-access"
+        )
+        XCTAssertEqual(
+            object["mcpOAuth"] as? [String: [String: String]],
+            ["server|0123abcd": ["accessToken": "mcp-access"]]
+        )
+    }
+
     func testClaudeScopeRulesAllowUnknownButRejectKnownMissingProfile() {
         let store = ClaudeAuthStore(
             environment: MockEnvironment(),

@@ -22,7 +22,6 @@ struct ClaudeCredentialState: Equatable, Sendable {
 
     var oauth: ClaudeOAuth
     let source: Source
-    let fullDocument: ClaudeCredentialsDocument?
 
     var hasUsableAccessToken: Bool {
         oauth.accessToken?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -112,9 +111,27 @@ struct ClaudeAuthStore: Sendable {
     ) throws -> Bool {
         guard credentialGeneration() == expected else { return false }
 
-        var document = state.fullDocument ?? ClaudeCredentialsDocument()
-        document.claudeAiOauth = state.oauth
-        let data = try JSONEncoder().encode(document)
+        // Claude Code keeps more than the login in this document: its MCP
+        // server logins live beside it. The refreshed login is merged into
+        // the stored JSON so everything else is written back untouched.
+        guard let stored = try storedText(for: state.source),
+              var document = ProviderParsing.objectWithHexFallback(stored) else {
+            throw ProviderFailure(.storage, "Claude credentials could not be updated.")
+        }
+        let refreshed = try JSONEncoder().encode(state.oauth)
+        guard let patch = try JSONSerialization.jsonObject(with: refreshed)
+            as? [String: Any] else {
+            throw ProviderFailure(.storage, "Claude credentials could not be encoded.")
+        }
+        var login = document["claudeAiOauth"] as? [String: Any] ?? [:]
+        for (key, value) in patch {
+            login[key] = value
+        }
+        document["claudeAiOauth"] = login
+        let data = try JSONSerialization.data(
+            withJSONObject: document,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
         guard let text = String(data: data, encoding: .utf8) else {
             throw ProviderFailure(.storage, "Claude credentials could not be encoded.")
         }
@@ -128,6 +145,17 @@ struct ClaudeAuthStore: Sendable {
             try keychain.writeGenericPassword(service: service, value: text)
         }
         return true
+    }
+
+    private func storedText(for source: ClaudeCredentialState.Source) throws -> String? {
+        switch source {
+        case .file:
+            try files.readText(credentialsPath())
+        case .keychainCurrentUser(let service):
+            try keychain.readGenericPasswordForCurrentUser(service: service)
+        case .keychainLegacy(let service):
+            try keychain.readGenericPassword(service: service)
+        }
     }
 
     private func loadKeychainCredentials() -> ClaudeCredentialState? {
@@ -174,7 +202,7 @@ struct ClaudeAuthStore: Sendable {
         else {
             return nil
         }
-        return ClaudeCredentialState(oauth: oauth, source: source, fullDocument: document)
+        return ClaudeCredentialState(oauth: oauth, source: source)
     }
 
     private func keychainServiceCandidates() -> [String] {
