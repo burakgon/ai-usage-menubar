@@ -24,6 +24,7 @@ final class AppPreferencesTests: XCTestCase {
     func testFreshInstallDefaultsMatchProductChoices() {
         let preferences = AppPreferences(defaults: defaults)
 
+        XCTAssertEqual(preferences.hiddenProviderIDs, [])
         XCTAssertEqual(
             preferences.trackedProviderIDs,
             Set(ProviderID.allCases)
@@ -542,6 +543,63 @@ final class AppPreferencesTests: XCTestCase {
             preferences.selectedMenuBarMetrics(for: .codex),
             [.weekly]
         )
+    }
+
+    @MainActor
+    func testHidingAProviderStopsTrackingAndSurvivesRelaunch() {
+        let preferences = AppPreferences(defaults: defaults)
+        let claudeItems = availableItemsByProvider[.claude]!
+        preferences.setMenuBarVisibility(
+            true,
+            for: .claude,
+            availableItems: claudeItems
+        )
+
+        preferences.setHidden(true, for: .claude)
+
+        XCTAssertTrue(preferences.isHidden(.claude))
+        XCTAssertFalse(preferences.isTracking(.claude))
+        XCTAssertFalse(preferences.isProviderShownInMenuBar(.claude))
+
+        let restored = AppPreferences(defaults: defaults)
+        XCTAssertTrue(restored.isHidden(.claude))
+        XCTAssertFalse(restored.isTracking(.claude))
+        XCTAssertEqual(
+            restored.selectedMenuBarMetrics(for: .claude),
+            [.weekly]
+        )
+    }
+
+    @MainActor
+    func testUnhidingShowsTheProviderAgainWithoutTrackingIt() {
+        let preferences = AppPreferences(defaults: defaults)
+
+        preferences.setHidden(true, for: .claude)
+        preferences.setHidden(false, for: .claude)
+
+        XCTAssertFalse(preferences.isHidden(.claude))
+        XCTAssertFalse(preferences.isTracking(.claude))
+
+        let restored = AppPreferences(defaults: defaults)
+        XCTAssertFalse(restored.isHidden(.claude))
+        XCTAssertEqual(restored.hiddenProviderIDs, [])
+    }
+
+    @MainActor
+    func testSeedingNeverReTracksAHiddenProvider() throws {
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude]),
+            forKey: "trackedProviderIDs.v1"
+        )
+
+        let firstRun = AppPreferences(defaults: defaults)
+        XCTAssertTrue(firstRun.isTracking(.devin))
+
+        firstRun.setHidden(true, for: .devin)
+        let laterRun = AppPreferences(defaults: defaults)
+
+        XCTAssertTrue(laterRun.isHidden(.devin))
+        XCTAssertFalse(laterRun.isTracking(.devin))
     }
 
     private var availableItemsByProvider:

@@ -10,6 +10,17 @@ final class AppPreferences {
         }
     }
 
+    private(set) var hiddenProviderIDs: Set<ProviderID> {
+        didSet {
+            defaults.set(
+                Self.encode(Array(hiddenProviderIDs).sorted {
+                    $0.rawValue < $1.rawValue
+                }),
+                forKey: Key.hiddenProviderIDs
+            )
+        }
+    }
+
     private(set) var visibleMenuBarProviderIDs: Set<ProviderID> {
         didSet {
             defaults.set(
@@ -69,6 +80,14 @@ final class AppPreferences {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
+        let storedHiddenProviders = Self.decode(
+            [ProviderID].self,
+            forKey: Key.hiddenProviderIDs,
+            in: defaults
+        )
+        let initialHiddenProviders = Set(
+            storedHiddenProviders ?? []
+        ).intersection(ProviderID.allCases)
         let restoredProviders = Self.decode(
             [ProviderID].self,
             forKey: Key.trackedProviderIDs,
@@ -76,7 +95,7 @@ final class AppPreferences {
         )
         var initialTrackedProviders = Set(
             restoredProviders ?? ProviderID.allCases
-        )
+        ).subtracting(initialHiddenProviders)
         if let restoredProviders {
             let restored = Set(restoredProviders)
             // Before 0.3.1 seeded providers stayed only in memory, so a
@@ -92,8 +111,19 @@ final class AppPreferences {
                 initialTrackedProviders.insert(.zai)
             }
         }
+        // Provider seeding above must never re-track a hidden provider.
+        initialTrackedProviders.subtract(initialHiddenProviders)
+        hiddenProviderIDs = initialHiddenProviders
         trackedProviderIDs = initialTrackedProviders
         // Property observers do not run in an initializer.
+        if storedHiddenProviders.map(Set.init) != initialHiddenProviders {
+            defaults.set(
+                Self.encode(Array(initialHiddenProviders).sorted {
+                    $0.rawValue < $1.rawValue
+                }),
+                forKey: Key.hiddenProviderIDs
+            )
+        }
         if restoredProviders.map(Set.init) != initialTrackedProviders {
             Self.store(initialTrackedProviders, in: defaults)
         }
@@ -136,6 +166,7 @@ final class AppPreferences {
             visibleMenuBarProviderIDs = Set(
                 storedVisibleProviders ?? []
             ).intersection(ProviderID.allCases)
+                .subtracting(initialHiddenProviders)
             menuBarMetricSelections = Self.sanitizedSelections(
                 storedMetricSelections ?? [:]
             )
@@ -209,6 +240,22 @@ final class AppPreferences {
         } else {
             trackedProviderIDs.remove(provider)
             visibleMenuBarProviderIDs.remove(provider)
+        }
+    }
+
+    func isHidden(_ provider: ProviderID) -> Bool {
+        hiddenProviderIDs.contains(provider)
+    }
+
+    /// Hiding removes the provider's Settings row and stops tracking it;
+    /// unhiding brings the row back with tracking off and prior menu-bar
+    /// metric selections intact.
+    func setHidden(_ hidden: Bool, for provider: ProviderID) {
+        if hidden {
+            hiddenProviderIDs.insert(provider)
+            setTracking(false, for: provider)
+        } else {
+            hiddenProviderIDs.remove(provider)
         }
     }
 
@@ -467,6 +514,7 @@ final class AppPreferences {
 
     private enum Key {
         static let trackedProviderIDs = "trackedProviderIDs.v1"
+        static let hiddenProviderIDs = "hiddenProviders.v1"
         static let visibleMenuBarProviderIDs =
             "menuBarVisibleProviders.v3"
         static let menuBarMetricSelections =

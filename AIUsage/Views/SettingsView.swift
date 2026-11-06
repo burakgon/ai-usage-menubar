@@ -8,6 +8,8 @@ struct SettingsView: View {
     @Bindable var updateController: UpdateController
     var showDashboard: @MainActor () -> Void = {}
 
+    @State private var showsHiddenProviders = false
+
     var body: some View {
         GlassEffectContainer(spacing: 10) {
             VStack(alignment: .leading, spacing: 16) {
@@ -54,15 +56,89 @@ struct SettingsView: View {
                 detail: "Choose what to track and what appears in the menu bar."
             )
 
-            providerRows
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+            VStack(spacing: 0) {
+                providerRows
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+
+                if !hiddenDescriptors.isEmpty {
+                    Divider()
+                        .padding(.horizontal, 12)
+
+                    hiddenProvidersFooter
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 4)
+                }
+            }
+            .glassEffect(.regular, in: .rect(cornerRadius: 14))
         }
     }
 
     private var providerRows: some View {
-        providerRowsContent(ProviderCatalog.all)
+        providerRowsContent(visibleDescriptors)
+    }
+
+    private var visibleDescriptors: [ProviderDescriptor] {
+        ProviderCatalog.all.filter { !preferences.isHidden($0.id) }
+    }
+
+    private var hiddenDescriptors: [ProviderDescriptor] {
+        ProviderCatalog.all.filter { preferences.isHidden($0.id) }
+    }
+
+    private var hiddenProvidersFooter: some View {
+        VStack(spacing: 0) {
+            Button {
+                showsHiddenProviders.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "eye.slash")
+                    Text(hiddenProvidersTitle)
+                    Spacer()
+                    Image(
+                        systemName: showsHiddenProviders
+                            ? "chevron.up"
+                            : "chevron.down"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+                .padding(.vertical, 7)
+            }
+            .buttonStyle(.plain)
+            .help("Choose which hidden providers return to this list")
+            .accessibilityLabel(hiddenProvidersTitle)
+
+            if showsHiddenProviders {
+                ForEach(hiddenDescriptors) { descriptor in
+                    HStack(spacing: 8) {
+                        ProviderIcon(provider: descriptor.id, size: 18)
+                        Text(descriptor.displayName)
+                            .font(.callout)
+                        Spacer()
+                        Button("Show") {
+                            preferences.setHidden(false, for: descriptor.id)
+                            store.setTrackedProviders(
+                                preferences.trackedProviderIDs
+                            )
+                        }
+                        .controlSize(.small)
+                        .help(
+                            "Return \(descriptor.displayName) to the providers list"
+                        )
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
+        }
+    }
+
+    private var hiddenProvidersTitle: String {
+        let count = hiddenDescriptors.count
+        return count == 1 ? "1 provider hidden" : "\(count) providers hidden"
     }
 
     private func providerRowsContent(
@@ -112,8 +188,25 @@ struct SettingsView: View {
                             item: item,
                             availableItems: availableItems
                         )
+                    },
+                    onHide: {
+                        preferences.setHidden(true, for: descriptor.id)
+                        store.setTrackedProviders(
+                            preferences.trackedProviderIDs
+                        )
                     }
                 )
+                .contextMenu {
+                    Button(
+                        "Hide \(descriptor.displayName)",
+                        role: .destructive
+                    ) {
+                        preferences.setHidden(true, for: descriptor.id)
+                        store.setTrackedProviders(
+                            preferences.trackedProviderIDs
+                        )
+                    }
+                }
 
                 if descriptor.id != descriptors.last?.id {
                     Divider()
@@ -259,6 +352,7 @@ private struct ProviderSettingsRow: View {
     let setTracking: (Bool) -> Void
     let setVisible: (Bool) -> Void
     let setMetric: (MenuBarItemID, Bool) -> Void
+    let onHide: () -> Void
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -319,6 +413,17 @@ private struct ProviderSettingsRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button(action: onHide) {
+                Image(systemName: "eye.slash")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Hide \(descriptor.displayName) from this list")
+            .accessibilityLabel("Hide \(descriptor.displayName)")
         }
         .padding(.vertical, 9)
         .accessibilityElement(children: .contain)
