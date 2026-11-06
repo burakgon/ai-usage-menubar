@@ -5,6 +5,10 @@ import Foundation
 enum AntigravityCodeAssistOutcome: Sendable {
     case success(Data)
     case tokenRefused
+    /// `403`: the token is valid, but Google does not share Code Assist for
+    /// this account. The plan and project only refine the read, so this is
+    /// not a sign-in problem.
+    case denied
     case unavailable
 }
 
@@ -88,6 +92,8 @@ struct AntigravityUsageClient: Sendable {
     }
 
     func loadCodeAssist(accessToken: String) async -> AntigravityCodeAssistOutcome {
+        var sawRefused = false
+        var sawDenied = false
         for base in Self.cloudBases {
             guard let url = URL(string: base + Self.planPath),
                   let response = try? await http.send(request(
@@ -97,12 +103,20 @@ struct AntigravityUsageClient: Sendable {
                   )) else {
                 continue
             }
-            if response.statusCode == 401 || response.statusCode == 403 {
-                return .tokenRefused
-            }
             if (200..<300).contains(response.statusCode) {
                 return .success(response.body)
             }
+            if response.statusCode == 401 {
+                sawRefused = true
+            } else if response.statusCode == 403 {
+                sawDenied = true
+            }
+        }
+        if sawRefused {
+            return .tokenRefused
+        }
+        if sawDenied {
+            return .denied
         }
         return .unavailable
     }
@@ -152,7 +166,13 @@ struct AntigravityUsageClient: Sendable {
         if responses.contains(where: { $0.statusCode == 401 }) {
             return .tokenRefused
         }
-        if responses.contains(where: { $0.statusCode == 403 }) {
+        // A 403 only means "Google does not share this account's quota" when
+        // every host answered 403. A 403 alongside an unreachable or failing
+        // host is a transient state, not an account-level denial.
+        let everyHostDenied =
+            responses.count == Self.cloudBases.count &&
+            responses.allSatisfy { $0.statusCode == 403 }
+        if everyHostDenied {
             return .denied
         }
         if let limited = responses.first(where: { $0.statusCode == 429 }) {

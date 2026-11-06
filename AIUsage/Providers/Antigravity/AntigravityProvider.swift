@@ -121,7 +121,7 @@ actor AntigravityProvider: UsageProvider {
                 )
             case .tokenRefused:
                 return .tokenRefused
-            case .unavailable:
+            case .unavailable, .denied:
                 // The plan and project only refine the read; try again in an
                 // hour and keep whatever was known.
                 codeAssist = CodeAssist(
