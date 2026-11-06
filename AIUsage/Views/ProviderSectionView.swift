@@ -74,20 +74,35 @@ struct ProviderSectionView: View {
 
             Spacer(minLength: 8)
 
-            if let plan = state.snapshot?.planName {
-                Text(plan)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .glassEffect(.clear, in: .capsule)
-                    .accessibilityLabel("Plan \(plan)")
+            if state.snapshot != nil {
+                PlanBadge(name: state.snapshot?.planName ?? "Unknown")
             }
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 6)
+    }
+}
+
+private struct PlanBadge: View {
+    let name: String
+
+    var body: some View {
+        Text(name)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.08))
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.16), lineWidth: 0.5)
+            }
+            .accessibilityLabel("Plan \(name)")
     }
 }
 
@@ -405,15 +420,9 @@ private struct QuotaTile: View {
                 .accessibilityHidden(true)
 
                 if let reset = window.resetsAt {
-                    HStack(spacing: 5) {
-                        Image(systemName: "clock")
-                            .foregroundStyle(.tertiary)
-                        Text(resetText(reset, relativeTo: context.date))
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    footer(resetText(reset, relativeTo: context.date))
+                } else if let statusText = window.statusText {
+                    footer(statusText)
                 }
             }
             .padding(.horizontal, 10)
@@ -426,11 +435,7 @@ private struct QuotaTile: View {
     }
 
     private var percentText: String {
-        let value = displayMode.displayedPercent(from: window.usedPercent)
-        if value.rounded() == value {
-            return "\(Int(value))%"
-        }
-        return "\(value.formatted(.number.precision(.fractionLength(1))))%"
+        displayMode.displayedPercentText(from: window.usedPercent)
     }
 
     private var valueTint: Color {
@@ -449,6 +454,18 @@ private struct QuotaTile: View {
         }
     }
 
+    private func footer(_ text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "clock")
+                .foregroundStyle(.tertiary)
+            Text(text)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption2)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func resetText(_ date: Date, relativeTo now: Date) -> String {
         guard let countdown = CompactCountdown.text(until: date, from: now) else {
             return "Resetting"
@@ -458,10 +475,13 @@ private struct QuotaTile: View {
 
     private func accessibilityValue(relativeTo now: Date) -> String {
         let usage = "\(percentText) \(displayMode.valueSuffix)"
-        guard let reset = window.resetsAt else {
-            return usage
+        if let reset = window.resetsAt {
+            return "\(usage), \(resetText(reset, relativeTo: now))"
         }
-        return "\(usage), \(resetText(reset, relativeTo: now))"
+        if let statusText = window.statusText {
+            return "\(usage), \(statusText)"
+        }
+        return usage
     }
 }
 

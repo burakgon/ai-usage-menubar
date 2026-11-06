@@ -527,6 +527,21 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
+    func testDisplayedPercentagesRoundToWholeNumbers() {
+        XCTAssertEqual(
+            UsageDisplayMode.remaining.displayedPercentText(from: 1.5),
+            "99%"
+        )
+        XCTAssertEqual(
+            UsageDisplayMode.used.displayedPercentText(from: 98.5),
+            "99%"
+        )
+        XCTAssertEqual(
+            UsageDisplayMode.used.displayedPercentInteger(from: 12.4),
+            12
+        )
+    }
+
     func testRemainingUsageIsTheFirstAndDefaultDisplayOption() {
         XCTAssertEqual(UsageDisplayMode.defaultSelection, .remaining)
         XCTAssertEqual(UsageDisplayMode.allCases, [.remaining, .used])

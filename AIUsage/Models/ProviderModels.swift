@@ -338,6 +338,19 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
     let kind: QuotaKind
     let usedPercent: Double
     let resetsAt: Date?
+    let statusText: String?
+
+    init(
+        kind: QuotaKind,
+        usedPercent: Double,
+        resetsAt: Date?,
+        statusText: String? = nil
+    ) {
+        self.kind = kind
+        self.usedPercent = usedPercent
+        self.resetsAt = resetsAt
+        self.statusText = statusText
+    }
 
     var id: QuotaKind { kind }
     var renderedFraction: Double { min(max(usedPercent / 100, 0), 1) }
@@ -629,6 +642,14 @@ enum UsageDisplayMode: String, CaseIterable, Identifiable, Sendable {
         case .remaining:
             100 - min(max(usedPercent, 0), 100)
         }
+    }
+
+    func displayedPercentInteger(from usedPercent: Double) -> Int {
+        Int(displayedPercent(from: usedPercent).rounded())
+    }
+
+    func displayedPercentText(from usedPercent: Double) -> String {
+        "\(displayedPercentInteger(from: usedPercent))%"
     }
 
     func renderedFraction(from usedPercent: Double) -> Double {
