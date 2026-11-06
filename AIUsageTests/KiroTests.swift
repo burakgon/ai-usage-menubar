@@ -133,7 +133,8 @@ final class KiroTests: XCTestCase {
             """)
         ])
 
-        XCTAssertTrue(try await store.refresh(&state, client: http))
+        let refreshed = try await store.refresh(&state, client: http)
+        XCTAssertTrue(refreshed)
         XCTAssertEqual(state.tokenRecord.accessToken, "new")
         XCTAssertEqual(state.tokenRecord.refreshToken, "rotated")
 
