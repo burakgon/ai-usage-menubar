@@ -34,7 +34,7 @@ server, telemetry, usage history, or background log scanning.
 ## Choose exactly what appears.
 
 <p align="center">
-  <img src="docs/images/ai-usage-settings-dark.png" width="760" alt="AI Usage native settings popover in dark mode, showing tracking, menu bar visibility, and metric choices for all seven supported coding agents">
+  <img src="docs/images/ai-usage-settings-dark.png" width="760" alt="AI Usage native settings popover in dark mode, showing tracking, menu bar visibility, and metric choices for all eight supported coding agents">
 </p>
 
 <p align="center">
