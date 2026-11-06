@@ -200,9 +200,12 @@ final class KiroTests: XCTestCase {
 
         let snapshot = try KiroUsageMapper.map(response: response, now: now)
 
-        guard case .unboundedSpend = snapshot.billingUsage else {
+        guard case let .unboundedSpend(usedAmount, currencyCode) =
+            snapshot.billingUsage else {
             return XCTFail("An unreported rate must not produce a derived cap")
         }
+        XCTAssertEqual(usedAmount, 3.25)
+        XCTAssertEqual(currencyCode, "USD")
     }
 
     func testMapperIgnoresDisabledOverage() throws {
@@ -398,7 +401,7 @@ final class KiroTests: XCTestCase {
     func testAuthStoreGivesUpWhenKiroRotatedTheTokenFirst() async throws {
         let files = MemoryFiles([
             KiroAuthStore.primaryAuthPath: """
-            {"accessToken":"newer","refreshToken":"rotated-by-kiro"}
+            {"accessToken":"old","refreshToken":"refresh","clientIdHash":"abc123"}
             """,
             "~/.aws/sso/cache/abc123.json": """
             {"clientId":"client","clientSecret":"secret"}
@@ -410,8 +413,11 @@ final class KiroTests: XCTestCase {
             dateProvider: FixedDateProvider(value: now)
         )
         var state = try XCTUnwrap(store.load())
-        // The in-flight refresh started from the older generation.
-        state.tokenRecord.refreshToken = "refresh"
+        // Kiro signs in again while this refresh is in flight.
+        try files.writeText(
+            KiroAuthStore.primaryAuthPath,
+            #"{"accessToken":"newer","refreshToken":"rotated-by-kiro"}"#
+        )
 
         let http = RoutedHTTPClient([
             "https://oidc.us-east-1.amazonaws.com/token": [
