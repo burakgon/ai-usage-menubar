@@ -14,9 +14,10 @@ native macOS-only product; this is not a cross-platform commitment.
 
 ## Users
 
-AI Usage is for macOS developers who use Claude Code and/or Codex locally and
-want to check their remaining session or weekly allowance without opening a
-CLI, visiting a provider dashboard, or leaving their current coding workflow.
+AI Usage is for macOS developers who use Claude Code, Codex, or another
+supported coding agent locally and want to check their remaining session or
+weekly allowance without opening a CLI, visiting a provider dashboard, or
+leaving their current coding workflow.
 
 ## Product Purpose
 
@@ -29,8 +30,8 @@ stable and nearly idle in the background.
 ## Positioning
 
 AI Usage is a focused native utility, not an analytics dashboard. It reuses the
-local OAuth sessions already created by the Claude Code and Codex CLIs and
-requests quota data directly from each provider's first-party endpoint. It
+local sign-ins already created by the supported tools and requests quota data
+directly from each provider's first-party endpoint. It
 requires no AI Usage account, API key, local server, telemetry, usage-history
 database, or background transcript scanning.
 
@@ -93,8 +94,9 @@ database, or background transcript scanning.
 
 - Product positioning, installation, behavior, and privacy claims:
   `README.md`
-- Current menu-bar product screenshot:
-  `docs/images/ai-usage-menubar-dark.png`
+- Current product images, rendered from the real views with made-up data by
+  `scripts/render_readme_images.sh`: `docs/images/hero-dark.png`,
+  `docs/images/hero-light.png`, and the other README images beside them
 - App and provider identity assets:
   `AIUsage/Assets.xcassets/`
 - Researched provider behavior and limitations:
