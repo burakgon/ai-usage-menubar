@@ -223,6 +223,49 @@ final class AntigravityTests: XCTestCase {
         }
     }
 
+    func testCodeAssistFallsThroughToTheDailyHostAfterAProductionDenial() async {
+        let fallthroughHTTP = RoutedHTTPClient([
+            prod + AntigravityUsageClient.planPath: [httpResponse(403)],
+            daily + AntigravityUsageClient.planPath: [httpResponse(json: "{}")]
+        ])
+        let outcome = await AntigravityUsageClient(http: fallthroughHTTP)
+            .loadCodeAssist(accessToken: "token")
+        guard case .success = outcome else {
+            return XCTFail("403 on production must not end the host loop")
+        }
+
+        let deniedHTTP = RoutedHTTPClient([
+            prod + AntigravityUsageClient.planPath: [httpResponse(403)],
+            daily + AntigravityUsageClient.planPath: [httpResponse(403)]
+        ])
+        let denied = await AntigravityUsageClient(http: deniedHTTP)
+            .loadCodeAssist(accessToken: "token")
+        guard case .denied = denied else {
+            return XCTFail("403 on every host is a denial, not a sign-in failure")
+        }
+    }
+
+    func testQuotaSummaryDoesNotReportDenialWhenAHostIsUnreachable() async {
+        let partialHTTP = RoutedHTTPClient([
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(403)]
+        ])
+        let partial = await AntigravityUsageClient(http: partialHTTP)
+            .quotaSummary(accessToken: "token", project: nil, now: now)
+        guard case .unavailable = partial else {
+            return XCTFail("A 403 from one of two unreachable hosts is transient")
+        }
+
+        let mixedHTTP = RoutedHTTPClient([
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(403)],
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(503)]
+        ])
+        let mixed = await AntigravityUsageClient(http: mixedHTTP)
+            .quotaSummary(accessToken: "token", project: nil, now: now)
+        guard case .unavailable = mixed else {
+            return XCTFail("403 plus a failing host is transient, not a denial")
+        }
+    }
+
     func testCodeAssistSendsTheClientMetadata() async throws {
         let http = RoutedHTTPClient([
             prod + AntigravityUsageClient.planPath: [httpResponse(json: "{}")]
