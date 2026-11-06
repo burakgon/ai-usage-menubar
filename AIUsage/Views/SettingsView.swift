@@ -8,6 +8,9 @@ struct SettingsView: View {
     @Bindable var updateController: UpdateController
     var showDashboard: @MainActor () -> Void = {}
 
+    @State private var rowFrames: [ProviderID: CGRect] = [:]
+    @State private var draggingProvider: ProviderID?
+
     var body: some View {
         GlassEffectContainer(spacing: 10) {
             VStack(alignment: .leading, spacing: 16) {
@@ -62,7 +65,7 @@ struct SettingsView: View {
     }
 
     private var providerRows: some View {
-        providerRowsContent(ProviderCatalog.all)
+        providerRowsContent(preferences.providerOrder.map(\.descriptor))
     }
 
     private func providerRowsContent(
@@ -112,13 +115,34 @@ struct SettingsView: View {
                             item: item,
                             availableItems: availableItems
                         )
-                    }
+                    },
+                    isDragging: draggingProvider == descriptor.id,
+                    reportFrame: { rowFrames[descriptor.id] = $0 },
+                    dragChanged: { handleDrag(of: descriptor.id, at: $0) },
+                    dragEnded: { draggingProvider = nil },
+                    rowsSpace: Self.rowsSpace
                 )
 
                 if descriptor.id != descriptors.last?.id {
                     Divider()
                 }
             }
+        }
+        .coordinateSpace(.named(Self.rowsSpace))
+    }
+
+    private static let rowsSpace = "providerRows"
+
+    /// Live reorder: once the pointer is over another row, the dragged
+    /// provider takes that row's place.
+    private func handleDrag(of provider: ProviderID, at point: CGPoint) {
+        draggingProvider = provider
+        guard let target = rowFrames.first(where: {
+            $0.key != provider &&
+                $0.value.minY <= point.y && point.y < $0.value.maxY
+        })?.key else { return }
+        withAnimation(.snappy(duration: 0.2)) {
+            preferences.moveProvider(provider, to: target)
         }
     }
 
@@ -259,6 +283,11 @@ private struct ProviderSettingsRow: View {
     let setTracking: (Bool) -> Void
     let setVisible: (Bool) -> Void
     let setMetric: (MenuBarItemID, Bool) -> Void
+    let isDragging: Bool
+    let reportFrame: (CGRect) -> Void
+    let dragChanged: (CGPoint) -> Void
+    let dragEnded: () -> Void
+    let rowsSpace: String
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -319,9 +348,37 @@ private struct ProviderSettingsRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            dragHandle
         }
         .padding(.vertical, 9)
+        .background(
+            isDragging ? Color.accentColor.opacity(0.12) : .clear,
+            in: .rect(cornerRadius: 8)
+        )
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .named(rowsSpace))
+        } action: {
+            reportFrame($0)
+        }
         .accessibilityElement(children: .contain)
+    }
+
+    private var dragHandle: some View {
+        Image(systemName: "line.3.horizontal")
+            .foregroundStyle(.secondary)
+            .frame(width: 20, height: 28)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(
+                    minimumDistance: 2,
+                    coordinateSpace: .named(rowsSpace)
+                )
+                .onChanged { dragChanged($0.location) }
+                .onEnded { _ in dragEnded() }
+            )
+            .help("Drag to reorder \(descriptor.displayName)")
+            .accessibilityLabel("Reorder \(descriptor.displayName)")
     }
 
     @ViewBuilder

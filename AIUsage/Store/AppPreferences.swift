@@ -31,6 +31,17 @@ final class AppPreferences {
         }
     }
 
+    /// User-chosen display order of providers. Always contains every
+    /// `ProviderID` exactly once.
+    private(set) var providerOrder: [ProviderID] {
+        didSet {
+            defaults.set(
+                Self.encode(providerOrder),
+                forKey: Key.providerOrder
+            )
+        }
+    }
+
     private(set) var hasConfiguredMenuBar: Bool {
         didSet {
             defaults.set(
@@ -68,6 +79,14 @@ final class AppPreferences {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+
+        providerOrder = Self.normalizedOrder(
+            Self.decode(
+                [ProviderID].self,
+                forKey: Key.providerOrder,
+                in: defaults
+            ) ?? []
+        )
 
         let restoredProviders = Self.decode(
             [ProviderID].self,
@@ -188,7 +207,7 @@ final class AppPreferences {
     }
 
     var menuBarProviderConfigurations: [MenuBarProviderConfiguration] {
-        ProviderID.allCases.compactMap { provider in
+        providerOrder.compactMap { provider in
             guard visibleMenuBarProviderIDs.contains(provider) else {
                 return nil
             }
@@ -197,6 +216,27 @@ final class AppPreferences {
                 metrics: selectedMenuBarMetrics(for: provider)
             )
         }
+    }
+
+    /// Moves `provider` to the position currently held by `target`.
+    func moveProvider(_ provider: ProviderID, to target: ProviderID) {
+        guard provider != target,
+              let source = providerOrder.firstIndex(of: provider),
+              let destination = providerOrder.firstIndex(of: target)
+        else { return }
+        var order = providerOrder
+        order.remove(at: source)
+        order.insert(provider, at: destination)
+        providerOrder = order
+    }
+
+    /// Drops duplicates and unknown values, then appends providers the
+    /// stored order does not know about (for example ones added by an app
+    /// update) in their default position order.
+    static func normalizedOrder(_ stored: [ProviderID]) -> [ProviderID] {
+        var seen: Set<ProviderID> = []
+        let kept = stored.filter { seen.insert($0).inserted }
+        return kept + ProviderID.allCases.filter { !seen.contains($0) }
     }
 
     func isTracking(_ provider: ProviderID) -> Bool {
@@ -471,6 +511,7 @@ final class AppPreferences {
             "menuBarVisibleProviders.v3"
         static let menuBarMetricSelections =
             "menuBarMetricSelections.v3"
+        static let providerOrder = "providerOrder.v1"
         static let hasConfiguredMenuBar =
             "menuBarConfigured.v3"
         static let currentMenuBarItems = "menuBarItems.v2"

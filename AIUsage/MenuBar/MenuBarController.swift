@@ -519,7 +519,8 @@ private struct DashboardRootView: View {
             availableUpdateVersion: updateController.availableVersion,
             isCheckingForUpdates: updateController.isChecking,
             checkForUpdates: updateController.checkForUpdates,
-            openSettings: openSettings
+            openSettings: openSettings,
+            providerOrder: preferences.providerOrder
         )
     }
 }
