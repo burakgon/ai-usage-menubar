@@ -113,7 +113,6 @@ actor GrokProvider: UsageProvider {
                 from: expiration
             )
         }
-        state.auth[state.entryKey] = state.entry
         try authStore.save(state)
         return true
     }
