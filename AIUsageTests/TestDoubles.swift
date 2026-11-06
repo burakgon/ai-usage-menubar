@@ -26,9 +26,11 @@ struct FixedProviderAvailabilityChecker: ProviderAvailabilityChecking {
 final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [String: String]
+    private var dataStorage: [String: Data]
 
-    init(_ storage: [String: String] = [:]) {
+    init(_ storage: [String: String] = [:], data: [String: Data] = [:]) {
         self.storage = storage
+        self.dataStorage = data
     }
 
     func exists(_ path: String) -> Bool {
@@ -44,6 +46,18 @@ final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
         }
     }
 
+    func readData(_ path: String) throws -> Data {
+        try lock.withLock {
+            if let value = dataStorage[path] {
+                return value
+            }
+            guard let value = storage[path] else {
+                throw CocoaError(.fileReadNoSuchFile)
+            }
+            return Data(value.utf8)
+        }
+    }
+
     func writeText(_ path: String, _ text: String) throws {
         lock.withLock { storage[path] = text }
     }
@@ -56,15 +70,18 @@ final class MemoryFiles: TextFileAccessing, @unchecked Sendable {
 final class MemoryKeychain: KeychainAccessing, @unchecked Sendable {
     private let lock = NSLock()
     private var generic: [String: String]
+    private var genericAccounts: [String: String]
     private var currentUser: [String: String]
     private(set) var genericReads: [String] = []
     private(set) var currentUserReads: [String] = []
 
     init(
         generic: [String: String] = [:],
+        genericAccounts: [String: String] = [:],
         currentUser: [String: String] = [:]
     ) {
         self.generic = generic
+        self.genericAccounts = genericAccounts
         self.currentUser = currentUser
     }
 
@@ -72,6 +89,12 @@ final class MemoryKeychain: KeychainAccessing, @unchecked Sendable {
         lock.withLock {
             genericReads.append(service)
             return generic[service]
+        }
+    }
+
+    func readGenericPassword(service: String, account: String) throws -> String? {
+        lock.withLock {
+            genericAccounts["\(service)|\(account)"]
         }
     }
 

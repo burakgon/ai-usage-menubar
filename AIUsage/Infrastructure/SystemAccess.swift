@@ -173,6 +173,7 @@ struct SystemProviderAvailabilityChecker: ProviderAvailabilityChecking {
 protocol TextFileAccessing: Sendable {
     func exists(_ path: String) -> Bool
     func readText(_ path: String) throws -> String
+    func readData(_ path: String) throws -> Data
     func writeText(_ path: String, _ text: String) throws
 }
 
@@ -185,6 +186,10 @@ struct LocalTextFileAccessor: TextFileAccessing {
 
     func readText(_ path: String) throws -> String {
         try String(contentsOfFile: expandHome(path), encoding: .utf8)
+    }
+
+    func readData(_ path: String) throws -> Data {
+        try Data(contentsOf: URL(fileURLWithPath: expandHome(path)))
     }
 
     func writeText(_ path: String, _ text: String) throws {
@@ -255,6 +260,7 @@ struct LocalTextFileAccessor: TextFileAccessing {
 
 protocol KeychainAccessing: Sendable {
     func readGenericPassword(service: String) throws -> String?
+    func readGenericPassword(service: String, account: String) throws -> String?
     func writeGenericPassword(service: String, value: String) throws
     func readGenericPasswordForCurrentUser(service: String) throws -> String?
     func writeGenericPasswordForCurrentUser(service: String, value: String) throws
@@ -270,6 +276,15 @@ struct SecurityKeychainAccessor: KeychainAccessing {
 
     func readGenericPassword(service: String) throws -> String? {
         try readPassword(["find-generic-password", "-s", service, "-w"])
+    }
+
+    func readGenericPassword(service: String, account: String) throws -> String? {
+        try readPassword([
+            "find-generic-password",
+            "-a", account,
+            "-s", service,
+            "-w"
+        ])
     }
 
     func readGenericPasswordForCurrentUser(service: String) throws -> String? {

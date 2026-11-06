@@ -156,6 +156,7 @@ causes at most one refresh and one retry.
 | GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
 | Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
 | Grok | `~/.grok/auth.json` | Grok CLI billing and settings APIs | Weekly |
+| Qoder | Encrypted `auth.v1.dat` in Qoder's Application Support folder, decrypted with the `Qoder App Safe Storage` Keychain key | `openapi.qoder.sh` quota and plan APIs | Credits, bonus credits |
 | Z.ai | `ZAI_API_KEY`, Claude Code `settings.json` pointed at Z.ai, then OpenCode `auth.json` | `GET /api/monitor/usage/quota/limit` on `api.z.ai` or `open.bigmodel.cn` | Session, Weekly, Web Searches |
 
 Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
@@ -170,6 +171,24 @@ as `429` or as `403` with `x-ratelimit-remaining: 0` or `Retry-After`; those
 wait until `x-ratelimit-reset` instead of reporting a rejected token. Cursor's
 `spendLimitUsage` is shown as extra usage only for a personal limit or personal
 spend, never for a team's shared pool.
+
+### Qoder
+
+Qoder keeps an encrypted `auth.v1.dat` in
+`~/Library/Application Support/com.qoder.app.stable` (or the `com.qodercn`
+variant). AI Usage reads it and decrypts the `v10` payload with the key stored
+in Keychain (`Qoder App Safe Storage` / `Qoder CN App Safe Storage`, account
+`Qoder App Key` / `Qoder CN App Key`), then reuses the bearer token. AI Usage
+never asks for credentials.
+
+`GET /api/v2/quota/usage` on `openapi.qoder.sh` returns `user_quota` and
+`add_on_quota`. `percentage` is the used share (values at or below 1 are
+treated as fractions), falling back to `used / total` (or `cap`). `user_quota`
+is Credits with `expires_at` (epoch milliseconds) as its reset; `add_on_quota`
+is the one-time bonus pool, omitted when Qoder reports none.
+`GET /api/v2/user/plan` names the plan, with `planTierName` from the auth file
+as a fallback. A `401`/`403` reports a signed-out Qoder, and a `429` honors
+`Retry-After`.
 
 ### Antigravity
 

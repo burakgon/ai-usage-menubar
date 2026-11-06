@@ -9,6 +9,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     case devin
     case grok
     case zai
+    case qoder
 
     var id: Self { self }
 
@@ -22,6 +23,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .devin: "Devin"
         case .grok: "Grok"
         case .zai: "Z.ai"
+        case .qoder: "Qoder"
         }
     }
 
@@ -35,6 +37,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .devin: "ProviderDevin"
         case .grok: "ProviderGrok"
         case .zai: "ProviderZAI"
+        case .qoder: "ProviderQoder"
         }
     }
 
@@ -64,6 +67,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: ["copilot", "github-copilot"]
         case .devin: ["devin"]
         case .grok: ["grok"]
+        case .qoder: ["qoder", "qodercli"]
         case .zai: []
         }
     }
@@ -100,6 +104,13 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
             ]
         case .grok:
             ["~/.grok"]
+        case .qoder:
+            [
+                "~/.qoder",
+                "/Applications/Qoder.app",
+                "~/Applications/Qoder.app",
+                "~/Library/Application Support/Qoder"
+            ]
         case .zai:
             []
         }
@@ -108,7 +119,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     var defaultMenuBarMetric: MenuBarMetricID {
         switch self {
         case .cursor: .totalUsage
-        case .copilot: .credits
+        case .copilot, .qoder: .credits
         case .claude, .codex, .antigravity, .devin, .grok, .zai: .weekly
         }
     }
@@ -126,6 +137,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
     case autoUsage
     case apiUsage
     case credits
+    case bonusCredits
     case chat
     case completions
     case claudePool
@@ -146,6 +158,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .autoUsage: "Auto Usage"
         case .apiUsage: "API Usage"
         case .credits: "Credits"
+        case .bonusCredits: "Bonus"
         case .chat: "Chat"
         case .completions: "Completions"
         case .claudePool: "Claude"
@@ -168,6 +181,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .autoUsage: .autoUsage
         case .apiUsage: .apiUsage
         case .credits: .credits
+        case .bonusCredits: .bonusCredits
         case .chat: .chat
         case .completions: .completions
         case .claudePool: .claudePool
@@ -197,6 +211,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case webSearches
     case extraUsage
     case credits
+    case bonusCredits
     case resets
 
     var id: Self { self }
@@ -221,6 +236,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .webSearches: "Web Searches"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
+        case .bonusCredits: "Bonus"
         case .resets: "Resets"
         }
     }
@@ -245,6 +261,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .webSearches: "magnifyingglass"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
+        case .bonusCredits: "gift"
         case .resets: "arrow.counterclockwise"
         }
     }
@@ -269,6 +286,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .webSearches: "WS"
         case .extraUsage: "E"
         case .credits: "C"
+        case .bonusCredits: "B"
         case .resets: "R"
         }
     }
@@ -292,6 +310,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .argonWeekly: .argonWeekly
         case .webSearches: .webSearches
         case .credits: .credits
+        case .bonusCredits: .bonusCredits
         case .extraUsage, .resets: nil
         }
     }

@@ -57,6 +57,7 @@ final class UsageStore {
             CopilotProvider(),
             DevinProvider(),
             GrokProvider(),
+            QoderProvider(),
             ZAIProvider()
         ],
         availabilityChecker: any ProviderAvailabilityChecking =

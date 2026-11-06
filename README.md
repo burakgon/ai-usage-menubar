@@ -28,7 +28,7 @@
 </p>
 
 AI Usage shows Claude Code, Codex, Cursor, Antigravity, GitHub Copilot, Devin,
-Grok, and Z.ai limits and stays out of the way. No extra account, API key, local
+Grok, Qoder, and Z.ai limits and stays out of the way. No extra account, API key, local
 server, telemetry, usage history, or background log scanning.
 
 ## Choose exactly what appears.
@@ -73,6 +73,7 @@ the menu bar rather than the Dock. macOS 26 or newer is required.
 - GitHub Copilot credits, chat, and completions
 - Devin daily and weekly quota
 - Grok weekly quota
+- Qoder credits and one-time bonus quota
 - Z.ai GLM Coding Plan session, weekly, and web search limits
 - Claude Code extra usage in your billing currency and Codex credits when
   available
@@ -112,6 +113,9 @@ To run without the installer, open `AIUsage.xcodeproj` in Xcode and run the
 AI Usage reuses credentials already created by supported tools, then requests
 quota data directly from each provider's first-party endpoint.
 
+- Qoder reuses the sign-in Qoder already stores on this Mac. Its encrypted
+  auth file is decrypted with the key Qoder keeps in your Keychain. AI Usage
+  never asks for credentials.
 - Z.ai uses the GLM Coding Plan key Claude Code or OpenCode is already
   configured with, or `ZAI_API_KEY`. AI Usage never asks for a key.
 - When Google doesn't share an Antigravity account's quota, AI Usage reads it

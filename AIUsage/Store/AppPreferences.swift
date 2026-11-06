@@ -91,6 +91,10 @@ final class AppPreferences {
                 (canRestore && !restored.contains(.zai)) {
                 initialTrackedProviders.insert(.zai)
             }
+            if defaults.object(forKey: Key.qoderProviderAdded) == nil ||
+                (canRestore && !restored.contains(.qoder)) {
+                initialTrackedProviders.insert(.qoder)
+            }
         }
         trackedProviderIDs = initialTrackedProviders
         // Property observers do not run in an initializer.
@@ -100,6 +104,7 @@ final class AppPreferences {
         defaults.set(true, forKey: Key.openUsageProvidersAdded)
         defaults.set(true, forKey: Key.seededProvidersRestored)
         defaults.set(true, forKey: Key.zaiProviderAdded)
+        defaults.set(true, forKey: Key.qoderProviderAdded)
 
         let storedVisibleProviders = Self.decode(
             [ProviderID].self,
@@ -483,6 +488,7 @@ final class AppPreferences {
         static let openUsageProvidersAdded =
             "openUsageProvidersAdded.v1"
         static let zaiProviderAdded = "zaiProviderAdded.v1"
+        static let qoderProviderAdded = "qoderProviderAdded.v1"
         static let seededProvidersRestored = "seededProvidersRestored.v1"
         static let menuBarSelection = "menuBarSelection"
         static let menuBarWindow = "menuBarWindow"
