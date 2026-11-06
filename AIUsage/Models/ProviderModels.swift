@@ -145,6 +145,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
     case claudePoolWeekly
     case argonWeekly
     case webSearches
+    case freeTrial
 
     var title: String {
         switch self {
@@ -165,6 +166,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .claudePoolWeekly: "Claude Weekly"
         case .argonWeekly: "Argon Weekly"
         case .webSearches: "Web Searches"
+        case .freeTrial: "Free Trial"
         }
     }
 
@@ -187,6 +189,7 @@ enum QuotaKind: String, Codable, Hashable, Sendable {
         case .claudePoolWeekly: .claudePoolWeekly
         case .argonWeekly: .argonWeekly
         case .webSearches: .webSearches
+        case .freeTrial: .freeTrial
         }
     }
 }
@@ -208,6 +211,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
     case claudePoolWeekly
     case argonWeekly
     case webSearches
+    case freeTrial
     case extraUsage
     case credits
     case resets
@@ -232,6 +236,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePoolWeekly: "Claude Weekly"
         case .argonWeekly: "Argon Weekly"
         case .webSearches: "Web Searches"
+        case .freeTrial: "Free Trial"
         case .extraUsage: "Extra Usage"
         case .credits: "Credits"
         case .resets: "Resets"
@@ -256,6 +261,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePoolWeekly: "calendar.badge.clock"
         case .argonWeekly: "atom"
         case .webSearches: "magnifyingglass"
+        case .freeTrial: "gift"
         case .extraUsage: "dollarsign.circle"
         case .credits: "creditcard"
         case .resets: "arrow.counterclockwise"
@@ -280,6 +286,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePoolWeekly: "ClW"
         case .argonWeekly: "ArW"
         case .webSearches: "WS"
+        case .freeTrial: "FT"
         case .extraUsage: "E"
         case .credits: "C"
         case .resets: "R"
@@ -304,6 +311,7 @@ enum MenuBarMetricID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .claudePoolWeekly: .claudePoolWeekly
         case .argonWeekly: .argonWeekly
         case .webSearches: .webSearches
+        case .freeTrial: .freeTrial
         case .credits: .credits
         case .extraUsage, .resets: nil
         }

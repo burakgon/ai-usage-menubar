@@ -156,11 +156,12 @@ causes at most one refresh and one retry.
 | GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
 | Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
 | Grok | `~/.grok/auth.json` | Grok CLI billing and settings APIs | Weekly |
-| Kiro | `~/.aws/sso/cache/kiro-auth-token.json` (or `-cli.json`), then `KIRO_API_KEY` | `q.<region>.amazonaws.com/getUsageLimits` | Credits, free trial, session, weekly, overage spend |
+| Kiro | `~/.aws/sso/cache/kiro-auth-token.json` (or `-cli.json`), then `KIRO_API_KEY` | `q.<region>.amazonaws.com/getUsageLimits` | Credits, free trial, session, weekly, daily |
 | Z.ai | `ZAI_API_KEY`, Claude Code `settings.json` pointed at Z.ai, then OpenCode `auth.json` | `GET /api/monitor/usage/quota/limit` on `api.z.ai` or `open.bigmodel.cn` | Session, Weekly, Web Searches |
 
-Cursor, Antigravity, Grok, and Kiro refresh expiring access tokens using the
-refresh credential already stored by the corresponding tool. Refreshed tokens are
+Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
+credential already stored by the corresponding tool. Kiro does the same, but
+only with the client registration Kiro itself stored. Refreshed tokens are
 persisted only where necessary; Antigravity's derived access token is cached
 privately by AI Usage and bound to a hash of the current refresh credential.
 
@@ -174,27 +175,37 @@ spend, never for a team's shared pool.
 
 ### Kiro
 
-Kiro keeps its AWS SSO token in `~/.aws/sso/cache/kiro-auth-token.json`
-(`kiro-auth-token-cli.json` for `kiro-cli`). The matching client credentials
-live in the file named by the record's `clientIdHash`, or in the first
-parseable `*.json` entry of the same directory. When no token file exists,
-`KIRO_API_KEY` is used as a bare access token. AI Usage never asks for
-credentials.
+Kiro and `kiro-cli` keep their AWS SSO token in
+`~/.aws/sso/cache/kiro-auth-token.json` (`kiro-auth-token-cli.json` for
+`kiro-cli`). Only Kiro's own client registration is read: the `*.json` file
+named by the record's `clientIdHash`. Other files in that directory belong to
+whatever else signed in through `aws sso login` on the Mac, and their client
+secrets are never sent in a refresh. When no token file exists, `KIRO_API_KEY`
+is read through `LoginShellEnvironment` and used directly as the bearer token.
+Kiro documents that variable, and that it may be unset to sign out, in the
+CLI's bundled `features/api-key-authentication` guide (`kiro-cli login --help`,
+`kiro-cli logout`). AI Usage never asks for credentials.
 
 `GET https://q.<region>.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST`
-returns a `usageBreakdownList`. Each entry becomes a window: `CREDIT` entries
-and names containing "credit" are Credits, names containing "session" are
-Session, and names containing "week" are Weekly. An active `freeTrialInfo`
-replaces that entry's window using its own limit and expiry.
-`subscriptionInfo.subscriptionTitle` (or `type`) names the plan; values without
-a recognized tier fall back to the title-cased text, and a missing
-subscription is reported as Free. An enabled `overageConfiguration` adds
-on-demand spend from `overageCharges`, capped by
-`overageCapWithPrecision × overageRate` when present.
+returns a `usageBreakdownList` whose entries are matched exactly: a `CREDIT`
+entry is Credits, and an `AGENTIC_REQUEST` entry is Session, Weekly, or Daily
+according to its display name. An active `freeTrialInfo` becomes a Free Trial
+window using its own limit and expiry. An entry Kiro sent without a limit, or
+with a resource type this build does not recognize, is left out rather than
+filed under Credits — otherwise several entries would collide on one window id.
+`subscriptionInfo.subscriptionTitle` (or `type`) names the plan; a missing
+subscription is reported as no plan, not as Free. An enabled
+`overageConfiguration` adds on-demand spend from `overageCharges`, capped by
+`overageCap × overageRate` only when Kiro reports both — no rate is assumed.
 
 A `401`/`403` refreshes the token once through
 `https://oidc.<region>.amazonaws.com/token` and writes the rotated access and
-refresh tokens back into the same file, preserving unknown fields. A `429`
+refresh tokens back into the same file, preserving unknown fields. Because Kiro
+refreshes the same token, the store re-reads the file before writing and
+abandons the write when `refreshToken` changed since the state was loaded.
+`region` comes from the token file and is interpolated into both hosts, so it is
+accepted only when it matches an AWS region name
+(`^[a-z]{2}(-[a-z]+)+-\d+$`); anything else falls back to `us-east-1`. A `429`
 honors `Retry-After`.
 
 ### Antigravity
