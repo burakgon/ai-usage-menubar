@@ -156,10 +156,11 @@ causes at most one refresh and one retry.
 | GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
 | Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
 | Grok | `~/.grok/auth.json` | Grok CLI billing and settings APIs | Weekly |
+| Kiro | `~/.aws/sso/cache/kiro-auth-token.json` (or `-cli.json`), then `KIRO_API_KEY` | `q.<region>.amazonaws.com/getUsageLimits` | Credits, free trial, session, weekly, overage spend |
 | Z.ai | `ZAI_API_KEY`, Claude Code `settings.json` pointed at Z.ai, then OpenCode `auth.json` | `GET /api/monitor/usage/quota/limit` on `api.z.ai` or `open.bigmodel.cn` | Session, Weekly, Web Searches |
 
-Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
-credential already stored by the corresponding tool. Refreshed tokens are
+Cursor, Antigravity, Grok, and Kiro refresh expiring access tokens using the
+refresh credential already stored by the corresponding tool. Refreshed tokens are
 persisted only where necessary; Antigravity's derived access token is cached
 privately by AI Usage and bound to a hash of the current refresh credential.
 
@@ -170,6 +171,31 @@ as `429` or as `403` with `x-ratelimit-remaining: 0` or `Retry-After`; those
 wait until `x-ratelimit-reset` instead of reporting a rejected token. Cursor's
 `spendLimitUsage` is shown as extra usage only for a personal limit or personal
 spend, never for a team's shared pool.
+
+### Kiro
+
+Kiro keeps its AWS SSO token in `~/.aws/sso/cache/kiro-auth-token.json`
+(`kiro-auth-token-cli.json` for `kiro-cli`). The matching client credentials
+live in the file named by the record's `clientIdHash`, or in the first
+parseable `*.json` entry of the same directory. When no token file exists,
+`KIRO_API_KEY` is used as a bare access token. AI Usage never asks for
+credentials.
+
+`GET https://q.<region>.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST`
+returns a `usageBreakdownList`. Each entry becomes a window: `CREDIT` entries
+and names containing "credit" are Credits, names containing "session" are
+Session, and names containing "week" are Weekly. An active `freeTrialInfo`
+replaces that entry's window using its own limit and expiry.
+`subscriptionInfo.subscriptionTitle` (or `type`) names the plan; values without
+a recognized tier fall back to the title-cased text, and a missing
+subscription is reported as Free. An enabled `overageConfiguration` adds
+on-demand spend from `overageCharges`, capped by
+`overageCapWithPrecision × overageRate` when present.
+
+A `401`/`403` refreshes the token once through
+`https://oidc.<region>.amazonaws.com/token` and writes the rotated access and
+refresh tokens back into the same file, preserving unknown fields. A `429`
+honors `Retry-After`.
 
 ### Antigravity
 

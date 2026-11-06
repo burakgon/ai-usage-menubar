@@ -9,6 +9,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     case devin
     case grok
     case zai
+    case kiro
 
     var id: Self { self }
 
@@ -22,6 +23,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .devin: "Devin"
         case .grok: "Grok"
         case .zai: "Z.ai"
+        case .kiro: "Kiro"
         }
     }
 
@@ -35,6 +37,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .devin: "ProviderDevin"
         case .grok: "ProviderGrok"
         case .zai: "ProviderZAI"
+        case .kiro: "ProviderKiro"
         }
     }
 
@@ -64,6 +67,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: ["copilot", "github-copilot"]
         case .devin: ["devin"]
         case .grok: ["grok"]
+        case .kiro: ["kiro", "kiro-cli"]
         case .zai: []
         }
     }
@@ -100,6 +104,15 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
             ]
         case .grok:
             ["~/.grok"]
+        case .kiro:
+            [
+                "~/.aws/sso/cache/kiro-auth-token.json",
+                "~/.kiro",
+                "/Applications/Kiro.app",
+                "~/Applications/Kiro.app",
+                "~/Library/Application Support/Kiro",
+                "~/.local/bin/kiro-cli"
+            ]
         case .zai:
             []
         }
@@ -108,7 +121,7 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     var defaultMenuBarMetric: MenuBarMetricID {
         switch self {
         case .cursor: .totalUsage
-        case .copilot: .credits
+        case .copilot, .kiro: .credits
         case .claude, .codex, .antigravity, .devin, .grok, .zai: .weekly
         }
     }

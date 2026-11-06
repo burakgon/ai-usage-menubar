@@ -174,6 +174,7 @@ protocol TextFileAccessing: Sendable {
     func exists(_ path: String) -> Bool
     func readText(_ path: String) throws -> String
     func writeText(_ path: String, _ text: String) throws
+    func listDirectory(_ path: String) -> [String]
 }
 
 struct LocalTextFileAccessor: TextFileAccessing {
@@ -185,6 +186,16 @@ struct LocalTextFileAccessor: TextFileAccessing {
 
     func readText(_ path: String) throws -> String {
         try String(contentsOfFile: expandHome(path), encoding: .utf8)
+    }
+
+    func listDirectory(_ path: String) -> [String] {
+        let displayPrefix = path.hasSuffix("/") ? String(path.dropLast()) : path
+        guard let names = try? FileManager.default.contentsOfDirectory(
+            atPath: expandHome(path)
+        ) else {
+            return []
+        }
+        return names.sorted().map { "\(displayPrefix)/\($0)" }
     }
 
     func writeText(_ path: String, _ text: String) throws {
