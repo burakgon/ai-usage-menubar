@@ -6,6 +6,32 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.3.2</title>
+            <pubDate>Fri, 06 Nov 2026 15:18:10 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.3.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.3.2
+
+This release keeps your other sign-ins intact when AI Usage renews a login.
+
+- Keep Claude Code's MCP server logins when AI Usage renews your Claude login.
+  Earlier versions dropped them, so Claude Code asked you to sign in to each
+  MCP server again.
+- Keep the rest of Grok's sign-in file when AI Usage renews its token, and
+  leave a login Grok renewed in the meantime untouched. Grok's rate limits now
+  show as rate limits.
+- Stop reporting an expired Antigravity session when Google only declines to
+  share the plan. AI Usage now asks both Google hosts before treating a token
+  as refused.
+- Keep the Update button's label readable on its blue glass.
+
+Thanks to straki and whale9820 for these fixes.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.3.2/AI-Usage.dmg" length="4240386" type="application/octet-stream" sparkle:edSignature="fcbEvD7VqFlPG5qYeD4ZxguEp0GA2P0x14ShVQiXeDMk3CQeOt690r47NsY6qwTEahZmf0fkeruGmjqaiHD3Cg=="/>
+        </item>
+        <item>
             <title>0.3.1</title>
             <pubDate>Thu, 05 Nov 2026 15:38:30 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -103,28 +129,9 @@ same lightweight, native menu bar experience.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.2.0/AI-Usage.dmg" length="4237417" type="application/octet-stream" sparkle:edSignature="LhJLbSQseg5ayuRoGbW//cjl7d9/PGFESdd7wKe6F9ScLSnzFgTNT6HfuX9T6brhpks2xfKbinGBpQqBBBxgBg=="/>
         </item>
-        <item>
-            <title>0.1.9</title>
-            <pubDate>Tue, 28 Jul 2026 23:28:34 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.1.9</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.1.9
-
-This release makes installing AI Usage seamless on macOS.
-
-- Signed with a Developer ID certificate and notarized by Apple.
-- Opens normally through Gatekeeper without the previous right-click workaround.
-- Includes a stapled notarization ticket so macOS can verify the download
-  reliably.
-- Keeps usage tracking, menu bar behavior, and existing preferences unchanged.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.1.9/AI-Usage.dmg" length="3901691" type="application/octet-stream" sparkle:edSignature="ydFdB54R0eWx3YiF0rjGG7j+JEEIXROttfxeRGG3ORbBkgO5jFJE+xREu/0Dxa/vvKEIGLimabLaLafDA21OAw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: fL9KoIZYlWI7HJmumoVlTWCk6Z45ufMQ6rS5Qk9/H23hlBXgCFKBcBlDmtA9ti4Pa5XPLh9SC2huI8b4eqXVBQ==
-length: 7486
+edSignature: uNIQbOon2uqZnWYpggc37F360AFrn0qT+af0DdUgvt+LQWc2l/GOp85MA229z0sh5UixEJBm94NUHLXo/DnwBw==
+length: 7825
 -->
