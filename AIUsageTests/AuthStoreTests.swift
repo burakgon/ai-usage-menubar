@@ -129,6 +129,47 @@ final class AuthStoreTests: XCTestCase {
         )
     }
 
+    func testGrokRefreshPreservesMetadataAndOtherScopes() throws {
+        let files = MemoryFiles([
+            GrokAuthStore.authPath: """
+            {"user::client":{"key":"old","refresh_token":"refresh","auth_mode":"oidc","create_time":"2026-10-30T00:00:00Z","user_id":"user","oidc_issuer":"https://auth.x.ai","future":{"nested":true}},"other":{"key":"other","custom":42}}
+            """
+        ])
+        let store = GrokAuthStore(files: files)
+        var state = try XCTUnwrap(
+            store.loadCandidates().first { $0.entryKey == "user::client" }
+        )
+        state.entry.key = "new"
+        state.entry.refreshToken = "rotated"
+        try store.save(state)
+        let data = Data(try files.readText(GrokAuthStore.authPath).utf8)
+        let saved = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data)
+                as? [String: [String: Any]]
+        )
+        XCTAssertEqual(saved["user::client"]?["auth_mode"] as? String, "oidc")
+        XCTAssertEqual(saved["user::client"]?["user_id"] as? String, "user")
+        XCTAssertEqual(
+            saved["user::client"]?["create_time"] as? String,
+            "2026-10-30T00:00:00Z"
+        )
+        XCTAssertEqual(
+            saved["user::client"]?["oidc_issuer"] as? String,
+            "https://auth.x.ai"
+        )
+        XCTAssertEqual(
+            saved["user::client"]?["future"] as? [String: Bool],
+            ["nested": true]
+        )
+        XCTAssertEqual(saved["other"]?["custom"] as? Int, 42)
+        XCTAssertEqual(saved["user::client"]?["key"] as? String, "new")
+        XCTAssertEqual(
+            saved["user::client"]?["refresh_token"] as? String,
+            "rotated"
+        )
+        XCTAssertThrowsError(try store.save(state))
+    }
+
     func testGrokReadsKeyedAuthEntries() {
         let store = GrokAuthStore(files: MemoryFiles([
             GrokAuthStore.authPath: """

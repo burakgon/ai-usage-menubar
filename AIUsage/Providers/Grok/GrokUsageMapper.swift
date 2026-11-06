@@ -17,6 +17,13 @@ enum GrokUsageMapper {
                 "Grok team accounts have no personal quota."
             )
         }
+        if response.statusCode == 429 {
+            throw ProviderFailure(
+                .rateLimited,
+                "Grok is rate limited. Try again later.",
+                retryAt: ProviderParsing.retryDate(from: response, now: now)
+            )
+        }
         guard (200..<300).contains(response.statusCode) else {
             throw ProviderFailure(
                 response.statusCode >= 500 ? .transient : .invalidResponse,

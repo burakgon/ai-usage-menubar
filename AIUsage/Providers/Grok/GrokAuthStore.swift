@@ -68,19 +68,38 @@ struct GrokAuthStore: Sendable {
         guard files.exists(Self.authPath),
               let text = try? files.readText(Self.authPath),
               let data = text.data(using: .utf8),
-              var auth = try? JSONDecoder().decode(
-                [String: GrokAuthEntry].self,
-                from: data
-              ) else {
+              var auth = try JSONSerialization.jsonObject(with: data)
+                as? [String: Any],
+              var entry = auth[state.entryKey] as? [String: Any] else {
             throw ProviderFailure(
                 .storage,
                 "Grok credentials could not be updated."
             )
         }
-        auth[state.entryKey] = state.entry
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let updated = try encoder.encode(auth)
+        guard let original = state.auth[state.entryKey],
+              entry["key"] as? String == original.key,
+              entry["refresh_token"] as? String == original.refreshToken else {
+            throw ProviderFailure(
+                .storage,
+                "Grok login changed during refresh. Refresh again."
+            )
+        }
+        let patchData = try JSONEncoder().encode(state.entry)
+        guard let patch = try JSONSerialization.jsonObject(with: patchData)
+            as? [String: Any] else {
+            throw ProviderFailure(
+                .storage,
+                "Grok credentials could not be encoded."
+            )
+        }
+        for (key, value) in patch {
+            entry[key] = value
+        }
+        auth[state.entryKey] = entry
+        let updated = try JSONSerialization.data(
+            withJSONObject: auth,
+            options: [.prettyPrinted, .sortedKeys]
+        )
         guard let output = String(data: updated, encoding: .utf8) else {
             throw ProviderFailure(
                 .storage,

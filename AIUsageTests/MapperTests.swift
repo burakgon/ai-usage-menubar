@@ -403,6 +403,25 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [48])
     }
 
+    func testGrokRateLimitCarriesTheRetryDate() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let response = httpResponse(429, headers: ["Retry-After": "120"])
+
+        XCTAssertThrowsError(
+            try GrokUsageMapper.map(
+                response: response,
+                planResponse: nil,
+                now: now
+            )
+        ) { error in
+            guard let failure = error as? ProviderFailure else {
+                return XCTFail("Expected a provider failure")
+            }
+            XCTAssertEqual(failure.kind, .rateLimited)
+            XCTAssertEqual(failure.retryAt, now.addingTimeInterval(120))
+        }
+    }
+
     func testAntigravityMapsAllAuthoritativeQuotaPools() throws {
         let snapshot = try XCTUnwrap(AntigravityUsageMapper.summary(
             [Data("""
