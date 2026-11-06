@@ -47,7 +47,22 @@ enum ProviderParsing {
            let decoded = try? JSONDecoder().decode(type, from: data) {
             return decoded
         }
+        guard let data = hexDecoded(text) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
 
+    /// The same document as an untyped object, for callers that must write
+    /// back fields they do not model.
+    static func objectWithHexFallback(_ text: String) -> [String: Any]? {
+        if let data = text.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return object
+        }
+        guard let data = hexDecoded(text) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    private static func hexDecoded(_ text: String) -> Data? {
         var hex = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if hex.hasPrefix("0x") || hex.hasPrefix("0X") {
             hex = String(hex.dropFirst(2))
@@ -64,7 +79,7 @@ enum ProviderParsing {
             bytes.append(byte)
             index = next
         }
-        return try? JSONDecoder().decode(type, from: Data(bytes))
+        return Data(bytes)
     }
 
     static func date(_ value: Any?) -> Date? {
