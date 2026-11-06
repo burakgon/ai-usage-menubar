@@ -73,6 +73,35 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(store.availableMenuBarItems(for: .codex), [])
     }
 
+    func testRateLimitedRefreshMarksTheMenuBarGroup() async {
+        let claude = SequencedProvider(
+            id: .claude,
+            results: [.failure(ProviderFailure(
+                .rateLimited,
+                "Limited",
+                retryAt: Date().addingTimeInterval(300)
+            ))]
+        )
+        let store = UsageStore(
+            providers: [claude],
+            availabilityChecker: FixedProviderAvailabilityChecker(
+                installed: [.claude]
+            )
+        )
+
+        await store.refresh()
+
+        let groups = store.menuBarProviderReadings(
+            for: [MenuBarProviderConfiguration(
+                provider: .claude,
+                metrics: [.weekly]
+            )]
+        )
+        XCTAssertEqual(groups.count, 1)
+        XCTAssertTrue(groups[0].isRateLimited)
+        XCTAssertTrue(groups[0].readings.isEmpty)
+    }
+
     func testMenuBarReadingsUseExactMetricsInUserOrder() async {
         let claude = SequencedProvider(
             id: .claude,

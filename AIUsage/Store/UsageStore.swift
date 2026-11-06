@@ -28,8 +28,10 @@ struct MenuBarProviderReadings: Equatable, Identifiable, Sendable {
     let selectedMetrics: [MenuBarMetricID]
     let readings: [MenuBarReading]
 
+    var isRateLimited: Bool = false
+
     var id: ProviderID { provider }
-    var showsMetricLabels: Bool { readings.count > 1 }
+    var showsMetricLabels: Bool { selectedMetrics.count > 1 }
 }
 
 @MainActor
@@ -45,6 +47,7 @@ final class UsageStore {
     private let providers: [any UsageProvider]
     private let availabilityChecker: any ProviderAvailabilityChecking
     private var cadenceTask: Task<Void, Never>?
+    private var activity: NSObjectProtocol?
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
 
@@ -76,10 +79,20 @@ final class UsageStore {
     func start() {
         guard cadenceTask == nil else { return }
         LoginShellEnvironment.shared.prewarm()
+        // Menu bar agents without visible windows are App Napped, which
+        // stretches timers far beyond their deadline. Opt out while running.
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "Periodic usage refresh"
+        )
         cadenceTask = makeCadenceTask(refreshImmediately: true)
     }
 
     func stop() {
+        if let activity {
+            ProcessInfo.processInfo.endActivity(activity)
+            self.activity = nil
+        }
         cadenceTask?.cancel()
         cadenceTask = nil
         cancelRefresh()
@@ -142,6 +155,7 @@ final class UsageStore {
             let effectiveProviders = providers.filter { provider in
                 trackedProviderIDs.contains(provider.id) &&
                     requested.contains(provider.id) &&
+                    (self?.states[provider.id]?.failure?.retryAt.map { $0 <= Date() } ?? true) &&
                     (installedProviders?.contains(provider.id) ?? true)
             }
 
@@ -282,7 +296,8 @@ final class UsageStore {
             return MenuBarProviderReadings(
                 provider: configuration.provider,
                 selectedMetrics: configuration.metrics,
-                readings: readings
+                readings: readings,
+                isRateLimited: state.failure?.kind == .rateLimited
             )
         }
     }
@@ -351,16 +366,25 @@ final class UsageStore {
     ) -> Task<Void, Never> {
         let duration = refreshInterval.duration
         return Task { [weak self, duration] in
+            // Anchor each tick to the previous tick's start so fetch time
+            // does not add to the configured interval, and use a tight
+            // tolerance so the system does not coalesce the wake-up.
+            let clock = ContinuousClock()
+            var tickStart = clock.now
             if refreshImmediately {
                 await self?.refresh(providerIDs: initialProviderIDs)
             }
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: duration)
+                    try await clock.sleep(
+                        until: tickStart + duration,
+                        tolerance: .seconds(1)
+                    )
                 } catch {
                     return
                 }
                 guard !Task.isCancelled else { return }
+                tickStart = clock.now
                 await self?.refresh()
             }
         }

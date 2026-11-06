@@ -46,6 +46,7 @@ enum MenuBarStatusImageRenderer {
     }
 
     private struct MetricRun {
+        let symbol: NSImage?
         let label: TextRun?
         let value: TextRun
         let staleIndicator: TextRun?
@@ -67,11 +68,17 @@ enum MenuBarStatusImageRenderer {
                 let label = metric.label.map {
                     textRun($0, font: microFont)
                 }
-                let value = textRun(metric.valueText, font: font)
+                let symbol = metric.systemImage.flatMap {
+                    symbolImage($0, font: font)
+                }
+                let value = symbol.map {
+                    TextRun(text: "", size: $0.size)
+                } ?? textRun(metric.valueText, font: font)
                 let staleIndicator = metric.showsStaleIndicator
                     ? textRun("⚠︎", font: microFont)
                     : nil
                 return MetricRun(
+                    symbol: symbol,
                     label: label,
                     value: value,
                     staleIndicator: staleIndicator,
@@ -125,10 +132,32 @@ enum MenuBarStatusImageRenderer {
             )
         )
 
-        let image = NSImage(
-            size: NSSize(width: ceil(width), height: ceil(height)),
-            flipped: false
-        ) { destination in
+        let size = NSSize(
+            width: max(1, ceil(width)),
+            height: max(1, ceil(height))
+        )
+        let image = NSImage(size: size)
+        for scale: CGFloat in [1, 2] {
+            guard let bitmap = NSBitmapImageRep(
+                bitmapDataPlanes: nil,
+                pixelsWide: Int(size.width * scale),
+                pixelsHigh: Int(size.height * scale),
+                bitsPerSample: 8,
+                samplesPerPixel: 4,
+                hasAlpha: true,
+                isPlanar: false,
+                colorSpaceName: .deviceRGB,
+                bytesPerRow: 0,
+                bitsPerPixel: 0
+            ), let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
+                continue
+            }
+            bitmap.size = size
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
+            NSGraphicsContext.current = context
+            context.cgContext.scaleBy(x: scale, y: scale)
+            let destination = NSRect(origin: .zero, size: size)
             var x = destination.minX
 
             for (index, entry) in entries.enumerated() {
@@ -176,14 +205,26 @@ enum MenuBarStatusImageRenderer {
                         x += label.width + labelValueSpacing
                     }
 
-                    (metric.value.text as NSString).draw(
-                        at: NSPoint(
-                            x: x,
-                            y: destination.midY -
-                                metric.value.size.height / 2
-                        ),
-                        withAttributes: valueAttributes
-                    )
+                    if let symbol = metric.symbol {
+                        symbol.draw(
+                            in: NSRect(
+                                x: x,
+                                y: destination.midY -
+                                    metric.value.size.height / 2,
+                                width: metric.value.width,
+                                height: metric.value.size.height
+                            )
+                        )
+                    } else {
+                        (metric.value.text as NSString).draw(
+                            at: NSPoint(
+                                x: x,
+                                y: destination.midY -
+                                    metric.value.size.height / 2
+                            ),
+                            withAttributes: valueAttributes
+                        )
+                    }
                     x += metric.value.width
 
                     if metricIndex == entry.metrics.count - 1,
@@ -219,7 +260,8 @@ enum MenuBarStatusImageRenderer {
                 }
             }
 
-            return true
+            context.flushGraphics()
+            image.addRepresentation(bitmap)
         }
         image.isTemplate = true
         return image
@@ -236,6 +278,24 @@ enum MenuBarStatusImageRenderer {
 
     private static func icon(for provider: ProviderID) -> NSImage {
         ProviderIcon.templateImage(for: provider, size: iconSize)
+    }
+
+    private static func symbolImage(_ name: String, font: NSFont) -> NSImage? {
+        let pointSize = max(11, font.pointSize)
+        let configuration = NSImage.SymbolConfiguration(
+            pointSize: pointSize,
+            weight: .medium
+        )
+        guard let image = NSImage(
+            systemSymbolName: name,
+            accessibilityDescription: nil
+        )?.withSymbolConfiguration(configuration) else {
+            return nil
+        }
+        if image.size.width < 1 || image.size.height < 1 {
+            image.size = NSSize(width: pointSize, height: pointSize)
+        }
+        return image
     }
 }
 

@@ -1,8 +1,48 @@
+import AppKit
 import XCTest
 @testable import AIUsage
 
 @MainActor
 final class MenuBarControllerTests: XCTestCase {
+    func testStatusImageUsesOnlySmallBitmapRepresentations() {
+        let image = MenuBarStatusImageRenderer.image(
+            for: [statusGroup(percent: 42)],
+            font: .menuBarFont(ofSize: 0)
+        )
+
+        XCTAssertTrue(image.isTemplate)
+        XCTAssertEqual(image.representations.count, 2)
+        XCTAssertLessThan(image.size.width, 200)
+        for representation in image.representations {
+            XCTAssertTrue(representation is NSBitmapImageRep)
+            XCTAssertLessThan(representation.pixelsWide, 400)
+            XCTAssertLessThan(representation.pixelsHigh, 100)
+        }
+        let bitmap = image.representations.last as! NSBitmapImageRep
+        let pixels = UnsafeBufferPointer(
+            start: bitmap.bitmapData,
+            count: bitmap.bytesPerRow * bitmap.pixelsHigh
+        )
+        XCTAssertTrue(
+            stride(from: 3, to: pixels.count, by: 4)
+                .contains { pixels[$0] > 0 }
+        )
+    }
+
+    private func statusGroup(percent: Double) -> MenuBarProviderReadings {
+        MenuBarProviderReadings(
+            provider: .codex,
+            selectedMetrics: [.weekly],
+            readings: [MenuBarReading(
+                provider: .codex,
+                metric: .weekly,
+                value: .percentage(percent),
+                displayMode: .used,
+                isStale: false
+            )]
+        )
+    }
+
     func testCloseSuppressesOnlyTheMatchingToggleEvent() {
         var gate = PanelToggleGate()
 

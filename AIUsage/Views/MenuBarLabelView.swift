@@ -74,6 +74,9 @@ struct MenuBarReadingsPresentation: Equatable, Sendable {
             return
         }
         accessibilityLabel = groups.map { group in
+            if group.isRateLimited {
+                return "\(group.provider.displayName), rate limited"
+            }
             if group.readings.isEmpty {
                 return "\(group.provider.displayName), no usage data"
             }
@@ -89,6 +92,7 @@ struct MenuBarMetricPresentation: Equatable, Sendable {
     let label: String?
     let valueText: String
     let showsStaleIndicator: Bool
+    var systemImage: String? = nil
 }
 
 struct MenuBarProviderPresentation: Equatable, Sendable {
@@ -98,6 +102,16 @@ struct MenuBarProviderPresentation: Equatable, Sendable {
 
     init(group: MenuBarProviderReadings) {
         provider = group.provider
+        if group.isRateLimited {
+            metrics = [MenuBarMetricPresentation(
+                label: nil,
+                valueText: "",
+                showsStaleIndicator: false,
+                systemImage: "hourglass"
+            )]
+            sharedSuffix = nil
+            return
+        }
         let sharesPercentageSuffix =
             group.showsMetricLabels &&
             !group.readings.isEmpty &&
@@ -168,8 +182,14 @@ struct MenuBarProviderLabelView: View {
                             .padding(.trailing, 1)
                     }
 
-                    Text(metric.valueText)
-                        .monospacedDigit()
+                    if let systemImage = metric.systemImage {
+                        Image(systemName: systemImage)
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(width: 12, height: 12)
+                    } else {
+                        Text(metric.valueText)
+                            .monospacedDigit()
+                    }
 
                     if index == presentation.metrics.count - 1,
                        let suffix = presentation.sharedSuffix {

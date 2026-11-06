@@ -100,18 +100,16 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertNil(presentation.sharedSuffix)
     }
 
-    func testSingleReadingDropsMicroLabelEvenWhenMoreMetricsAreSelected() {
-        // A selected metric the provider no longer returns (e.g. a missing
-        // five-hour window) must not force a label onto the lone reading.
+    func testMultipleSelectionsKeepLabelWhenOneReadingIsUnavailable() {
         let group = MenuBarProviderReadings(
-            provider: .claude,
-            selectedMetrics: [.session, .weekly],
+            provider: .codex,
+            selectedMetrics: [.weekly, .spark],
             readings: [
                 MenuBarReading(
-                    provider: .claude,
-                    metric: .weekly,
-                    value: .percentage(97),
-                    displayMode: .remaining,
+                    provider: .codex,
+                    metric: .spark,
+                    value: .percentage(28),
+                    displayMode: .used,
                     isStale: false
                 )
             ]
@@ -123,13 +121,33 @@ final class MenuBarPresentationTests: XCTestCase {
             presentation.metrics,
             [
                 MenuBarMetricPresentation(
-                    label: nil,
-                    valueText: "97%",
+                    label: "Sp",
+                    valueText: "28",
                     showsStaleIndicator: false
                 )
             ]
         )
+    }
+
+    func testRateLimitedProviderUsesAnHourglassAndAccessibleStatus() {
+        let group = MenuBarProviderReadings(
+            provider: .claude,
+            selectedMetrics: [.weekly],
+            readings: [],
+            isRateLimited: true
+        )
+
+        let presentation = MenuBarProviderPresentation(group: group)
+
+        XCTAssertEqual(presentation.metrics.count, 1)
+        XCTAssertEqual(presentation.metrics.first?.systemImage, "hourglass")
+        XCTAssertEqual(presentation.metrics.first?.valueText, "")
+        XCTAssertNil(presentation.metrics.first?.label)
         XCTAssertNil(presentation.sharedSuffix)
+        XCTAssertEqual(
+            MenuBarReadingsPresentation(groups: [group]).accessibilityLabel,
+            "Claude, rate limited"
+        )
     }
 
     func testMultipleSelectedMetricsUseMicroLabelsAndSharedPercent() {
