@@ -234,9 +234,17 @@ final class AppPreferences {
         providerOrder = order
     }
 
-    /// Drops duplicates and unknown values, then appends providers the
-    /// stored order does not know about (for example ones added by an app
-    /// update) in their default position order.
+    /// Moves `provider` up (negative) or down (positive) by `offset` places,
+    /// stopping at either end of the list.
+    func moveProvider(_ provider: ProviderID, by offset: Int) {
+        guard let index = providerOrder.firstIndex(of: provider) else { return }
+        let destination = min(max(index + offset, 0), providerOrder.count - 1)
+        moveProvider(provider, to: providerOrder[destination])
+    }
+
+    /// Drops duplicates, then appends providers the stored order does not
+    /// know about (for example ones added by an app update) in their default
+    /// order.
     static func normalizedOrder(_ stored: [ProviderID]) -> [ProviderID] {
         var seen: Set<ProviderID> = []
         let kept = stored.filter { seen.insert($0).inserted }

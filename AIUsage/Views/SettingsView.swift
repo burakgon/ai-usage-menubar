@@ -120,6 +120,11 @@ struct SettingsView: View {
                     reportFrame: { rowFrames[descriptor.id] = $0 },
                     dragChanged: { handleDrag(of: descriptor.id, at: $0) },
                     dragEnded: { draggingProvider = nil },
+                    move: { offset in
+                        withAnimation(.snappy(duration: 0.2)) {
+                            preferences.moveProvider(descriptor.id, by: offset)
+                        }
+                    },
                     rowsSpace: Self.rowsSpace
                 )
 
@@ -133,14 +138,16 @@ struct SettingsView: View {
 
     private static let rowsSpace = "providerRows"
 
-    /// Live reorder: once the pointer is over another row, the dragged
-    /// provider takes that row's place.
+    /// Live reorder: the dragged provider takes the place of the row the
+    /// pointer has moved past.
     private func handleDrag(of provider: ProviderID, at point: CGPoint) {
         draggingProvider = provider
-        guard let target = rowFrames.first(where: {
-            $0.key != provider &&
-                $0.value.minY <= point.y && point.y < $0.value.maxY
-        })?.key else { return }
+        guard let target = ProviderRowDrag.target(
+            of: provider,
+            at: point.y,
+            order: preferences.providerOrder,
+            frames: rowFrames
+        ) else { return }
         withAnimation(.snappy(duration: 0.2)) {
             preferences.moveProvider(provider, to: target)
         }
@@ -287,6 +294,7 @@ private struct ProviderSettingsRow: View {
     let reportFrame: (CGRect) -> Void
     let dragChanged: (CGPoint) -> Void
     let dragEnded: () -> Void
+    let move: (Int) -> Void
     let rowsSpace: String
 
     var body: some View {
@@ -377,8 +385,11 @@ private struct ProviderSettingsRow: View {
                 .onChanged { dragChanged($0.location) }
                 .onEnded { _ in dragEnded() }
             )
+            .pointerStyle(isDragging ? .grabActive : .grabIdle)
             .help("Drag to reorder \(descriptor.displayName)")
             .accessibilityLabel("Reorder \(descriptor.displayName)")
+            .accessibilityAction(named: "Move Up") { move(-1) }
+            .accessibilityAction(named: "Move Down") { move(1) }
     }
 
     @ViewBuilder
@@ -442,6 +453,32 @@ private struct ProviderSettingsRow: View {
         isSelected
             ? "Hide \(metric.title) for \(descriptor.displayName)"
             : "Show \(metric.title) for \(descriptor.displayName)"
+    }
+}
+
+/// Where a dragged provider row belongs.
+enum ProviderRowDrag {
+    /// The provider whose place the dragged row takes, or `nil` to stay.
+    ///
+    /// A row is passed only once the pointer crosses its middle. Rows differ
+    /// in height, so swapping as soon as the pointer entered one would leave
+    /// the pointer over the row it had just swapped with, and the two would
+    /// trade places on every move. Direction comes from the order rather than
+    /// the frames, which still describe the old layout until it is redrawn.
+    static func target(
+        of provider: ProviderID,
+        at y: CGFloat,
+        order: [ProviderID],
+        frames: [ProviderID: CGRect]
+    ) -> ProviderID? {
+        guard let index = order.firstIndex(of: provider) else { return nil }
+        let passedBelow = order[(index + 1)...].last { below in
+            frames[below].map { y > $0.midY } ?? false
+        }
+        let passedAbove = order[..<index].first { above in
+            frames[above].map { y < $0.midY } ?? false
+        }
+        return passedBelow ?? passedAbove
     }
 }
 

@@ -611,6 +611,79 @@ final class AppPreferencesTests: XCTestCase {
     }
 
     @MainActor
+    func testMovingByOffsetStopsAtEitherEnd() {
+        let preferences = AppPreferences(defaults: defaults)
+        preferences.moveProvider(.codex, by: -1)
+        XCTAssertEqual(Array(preferences.providerOrder.prefix(2)), [.codex, .claude])
+
+        preferences.moveProvider(.codex, by: -1)
+        XCTAssertEqual(preferences.providerOrder.first, .codex)
+
+        preferences.moveProvider(.codex, by: 1)
+        XCTAssertEqual(Array(preferences.providerOrder.prefix(2)), [.claude, .codex])
+
+        let last = ProviderID.allCases.last!
+        preferences.moveProvider(last, by: 1)
+        XCTAssertEqual(preferences.providerOrder.last, last)
+        XCTAssertEqual(preferences.providerOrder.count, ProviderID.allCases.count)
+    }
+
+    @MainActor
+    func testDraggedRowPassesARowOnlyAfterItsMiddle() {
+        // A short row above a tall one, as when one provider's metric
+        // choices wrap onto a second line.
+        let order: [ProviderID] = [.claude, .codex, .cursor]
+        let frames: [ProviderID: CGRect] = [
+            .claude: CGRect(x: 0, y: 0, width: 500, height: 40),
+            .codex: CGRect(x: 0, y: 41, width: 500, height: 80),
+            .cursor: CGRect(x: 0, y: 122, width: 500, height: 40)
+        ]
+
+        XCTAssertNil(ProviderRowDrag.target(of: .claude, at: 70, order: order, frames: frames))
+        XCTAssertEqual(
+            ProviderRowDrag.target(of: .claude, at: 90, order: order, frames: frames),
+            .codex
+        )
+        XCTAssertEqual(
+            ProviderRowDrag.target(of: .claude, at: 150, order: order, frames: frames),
+            .cursor
+        )
+        XCTAssertEqual(
+            ProviderRowDrag.target(of: .cursor, at: 30, order: order, frames: frames),
+            .codex
+        )
+        XCTAssertEqual(
+            ProviderRowDrag.target(of: .cursor, at: 10, order: order, frames: frames),
+            .claude
+        )
+    }
+
+    @MainActor
+    func testDraggedRowDoesNotSwapBackOverTheRowItPassed() {
+        // Claude has just moved below the taller Codex row, and the pointer
+        // is still where the swap happened.
+        let order: [ProviderID] = [.codex, .claude, .cursor]
+        let pointer: CGFloat = 90
+        let redrawn: [ProviderID: CGRect] = [
+            .codex: CGRect(x: 0, y: 0, width: 500, height: 80),
+            .claude: CGRect(x: 0, y: 81, width: 500, height: 40),
+            .cursor: CGRect(x: 0, y: 122, width: 500, height: 40)
+        ]
+        // The frames from before the swap, until the list is redrawn.
+        let stale: [ProviderID: CGRect] = [
+            .claude: CGRect(x: 0, y: 0, width: 500, height: 40),
+            .codex: CGRect(x: 0, y: 41, width: 500, height: 80),
+            .cursor: CGRect(x: 0, y: 122, width: 500, height: 40)
+        ]
+
+        for frames in [redrawn, stale] {
+            XCTAssertNil(
+                ProviderRowDrag.target(of: .claude, at: pointer, order: order, frames: frames)
+            )
+        }
+    }
+
+    @MainActor
     func testNormalizedOrderRepairsStoredValue() {
         let order = AppPreferences.normalizedOrder([.zai, .zai, .claude])
         XCTAssertEqual(Array(order.prefix(2)), [.zai, .claude])
