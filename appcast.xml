@@ -6,6 +6,27 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.4.0</title>
+            <pubDate>Sat, 07 Nov 2026 13:04:36 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>16</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.4.0
+
+This release adds Kiro and lets you put your providers in your own order.
+
+- Add Kiro's monthly credits, free-trial credits, and overage spend, using the
+  sign-in Kiro or `kiro-cli` already has, or `KIRO_API_KEY`.
+- Drag the handle beside each provider in Settings to reorder them. The usage
+  panel and the menu bar follow the same order. With VoiceOver, use the Move Up
+  and Move Down actions.
+
+Thanks to whale9820 and abdullayevilkin for these contributions.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.4.0/AI-Usage.dmg" length="4381021" type="application/octet-stream" sparkle:edSignature="cciR17pp5OIljTb6qXxbjITmsnKp8PoocO5mZIzGDsvuGh/0MFzcn3Ld4Y3kIagXC/71UlflZMdY0lY9DbNJDg=="/>
+        </item>
+        <item>
             <title>0.3.2</title>
             <pubDate>Fri, 06 Nov 2026 15:18:10 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -104,34 +125,9 @@ This release fixes the menu bar panel's inactive appearance in light mode.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.2.1/AI-Usage.dmg" length="3903422" type="application/octet-stream" sparkle:edSignature="byKnEnz8xSxHOqTCIEXGUItLYcT2oZhQFnJZogtG12hoP91AwrTnet2GvLOz+YkGys3F/4CsXg/5+d8AHUafDw=="/>
         </item>
-        <item>
-            <title>0.2.0</title>
-            <pubDate>Wed, 29 Jul 2026 09:38:38 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.2.0
-
-This release expands AI Usage beyond Claude Code and Codex while keeping the
-same lightweight, native menu bar experience.
-
-- Add native usage tracking for Cursor, Antigravity, GitHub Copilot, Devin,
-  and Grok.
-- Discover existing local sign-ins automatically, without asking for API keys
-  or creating another account.
-- Show every supported provider at once in the settings popover, with clear
-  tracking, menu bar, and metric controls.
-- Keep providers that are not installed out of the menu bar while still
-  reporting signed-out states accurately for installed tools.
-- Preserve existing menu bar choices and default newly available providers to
-  their most useful weekly or total metric.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.2.0/AI-Usage.dmg" length="4237417" type="application/octet-stream" sparkle:edSignature="LhJLbSQseg5ayuRoGbW//cjl7d9/PGFESdd7wKe6F9ScLSnzFgTNT6HfuX9T6brhpks2xfKbinGBpQqBBBxgBg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: uNIQbOon2uqZnWYpggc37F360AFrn0qT+af0DdUgvt+LQWc2l/GOp85MA229z0sh5UixEJBm94NUHLXo/DnwBw==
-length: 7825
+edSignature: YtcAKmDb7NYd54xehDepBNnCt9VxBRbdp+JE0/sSI8oVNykvgV6WQ+PDwNI0qDZok5/FUwzYd42Oo4TaYP8ADA==
+length: 7593
 -->
