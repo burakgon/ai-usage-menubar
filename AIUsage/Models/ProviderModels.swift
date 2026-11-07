@@ -8,8 +8,8 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
     case copilot
     case devin
     case grok
-    case zai
     case kiro
+    case zai
 
     var id: Self { self }
 
@@ -22,8 +22,8 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: "GitHub Copilot"
         case .devin: "Devin"
         case .grok: "Grok"
-        case .zai: "Z.ai"
         case .kiro: "Kiro"
+        case .zai: "Z.ai"
         }
     }
 
@@ -36,8 +36,8 @@ enum ProviderID: String, CaseIterable, Codable, Identifiable, Sendable {
         case .copilot: "ProviderCopilot"
         case .devin: "ProviderDevin"
         case .grok: "ProviderGrok"
-        case .zai: "ProviderZAI"
         case .kiro: "ProviderKiro"
+        case .zai: "ProviderZAI"
         }
     }
 

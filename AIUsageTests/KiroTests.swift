@@ -7,31 +7,21 @@ final class KiroTests: XCTestCase {
 
     // MARK: - Mapping
 
-    func testMapperMapsCreditsFreeTrialAndWeeklyWindows() throws {
+    func testMapperShowsAnActiveFreeTrialBesideTheCredits() throws {
         let response = httpResponse(json: """
         {
-          "subscriptionInfo": {"subscriptionTitle": "Kiro Pro"},
-          "nextDateReset": "2027-01-15T00:00:00.000Z",
+          "subscriptionInfo": {"subscriptionTitle": "KIRO FREE"},
+          "nextDateReset": 1799020800.0,
           "usageBreakdownList": [
             {
               "displayName": "Credit",
               "resourceType": "CREDIT",
-              "currentUsageWithPrecision": 250,
-              "usageLimitWithPrecision": 1000
-            },
-            {
-              "displayName": "Weekly",
-              "resourceType": "AGENTIC_REQUEST",
-              "currentUsageWithPrecision": 100,
-              "usageLimitWithPrecision": 500
-            },
-            {
-              "displayName": "Free trial",
-              "resourceType": "AGENTIC_REQUEST",
+              "currentUsageWithPrecision": 12.5,
+              "usageLimitWithPrecision": 50,
               "freeTrialInfo": {
                 "freeTrialStatus": "ACTIVE",
-                "currentUsageWithPrecision": 10,
-                "usageLimitWithPrecision": 100,
+                "currentUsageWithPrecision": 100,
+                "usageLimitWithPrecision": 500,
                 "freeTrialExpiry": "2027-01-01T00:00:00.000Z"
               }
             }
@@ -42,16 +32,32 @@ final class KiroTests: XCTestCase {
         let snapshot = try KiroUsageMapper.map(response: response, now: now)
 
         XCTAssertEqual(snapshot.provider, .kiro)
-        XCTAssertEqual(snapshot.planName, "Pro")
-        XCTAssertEqual(snapshot.windows.map(\.kind), [.credits, .weekly, .freeTrial])
-        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 20, 10])
+        XCTAssertEqual(snapshot.planName, "Free")
+        XCTAssertEqual(snapshot.windows.map(\.kind), [.credits, .freeTrial])
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 20])
         XCTAssertEqual(
-            snapshot.windows.last?.resetsAt,
-            ProviderParsing.date("2027-01-01T00:00:00.000Z")
+            snapshot.windows.map(\.resetsAt),
+            [
+                Date(timeIntervalSince1970: 1_799_020_800),
+                ProviderParsing.date("2027-01-01T00:00:00.000Z")
+            ]
         )
     }
 
-    func testMapperKeepsReportedPercentAndClampsOnlyTheBar() throws {
+    func testMapperIgnoresAnEndedFreeTrial() throws {
+        let response = httpResponse(json: """
+        {"usageBreakdownList": [{
+          "resourceType": "CREDIT", "currentUsage": 5, "usageLimit": 50,
+          "freeTrialInfo": {"freeTrialStatus": "EXPIRED", "currentUsage": 500, "usageLimit": 500}
+        }]}
+        """)
+
+        let snapshot = try KiroUsageMapper.map(response: response, now: now)
+
+        XCTAssertEqual(snapshot.windows.map(\.kind), [.credits])
+    }
+
+    func testMapperBoundsTheCalculatedPercent() throws {
         let response = httpResponse(json: """
         {
           "usageBreakdownList": [
@@ -79,7 +85,9 @@ final class KiroTests: XCTestCase {
             {"resourceType": "CREDIT", "currentUsage": 1, "usageLimit": 4},
             {"resourceType": "AGENTIC_REQUEST", "displayName": "Credit"},
             {"resourceType": "UNKNOWN_THING", "currentUsage": 5, "usageLimit": 10},
-            {"resourceType": "AGENTIC_REQUEST", "currentUsage": 5, "usageLimit": 10}
+            {"resourceType": "AGENTIC_REQUEST", "currentUsage": 5, "usageLimit": 10},
+            {"resourceType": "AGENTIC_REQUEST", "displayName": "Weekly", "currentUsage": 5, "usageLimit": 10},
+            {"resourceType": "CREDIT", "currentUsage": 3, "usageLimit": 4}
           ]
         }
         """)
@@ -87,7 +95,7 @@ final class KiroTests: XCTestCase {
         let snapshot = try KiroUsageMapper.map(response: response, now: now)
 
         XCTAssertEqual(snapshot.windows.map(\.kind), [.credits])
-        XCTAssertEqual(snapshot.windows.count, Set(snapshot.windows.map(\.kind)).count)
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25])
     }
 
     func testMapperReportsNoPlanInsteadOfInventingFree() throws {
@@ -113,14 +121,32 @@ final class KiroTests: XCTestCase {
         XCTAssertEqual(snapshot.planName, "Student")
     }
 
-    func testMapperReadsTheSubscriptionTypeAsAPlanLabel() throws {
+    func testMapperKeepsThePlanTierKiroReports() throws {
+        let titles = [
+            "KIRO PRO+": "Pro+",
+            "KIRO POWER": "Power",
+            "KIRO STUDENT": "Student",
+            "Kiro Pro": "Pro"
+        ]
+        for (title, plan) in titles {
+            let response = httpResponse(json: """
+            {"subscriptionInfo": {"subscriptionTitle": "\(title)"}}
+            """)
+
+            let snapshot = try KiroUsageMapper.map(response: response, now: now)
+
+            XCTAssertEqual(snapshot.planName, plan, title)
+        }
+    }
+
+    func testMapperDoesNotShowTheInternalSubscriptionType() throws {
         let response = httpResponse(json: """
         {"subscriptionInfo": {"type": "Q_DEVELOPER_STANDALONE_STUDENT"}}
         """)
 
         let snapshot = try KiroUsageMapper.map(response: response, now: now)
 
-        XCTAssertEqual(snapshot.planName, "Q Developer Standalone Student")
+        XCTAssertNil(snapshot.planName)
     }
 
     // MARK: - Billing
@@ -360,7 +386,7 @@ final class KiroTests: XCTestCase {
 
     func testAuthStoreRefreshPersistsRotatedTokensAndUnknownFields() async throws {
         let token = """
-        {"accessToken":"old","refreshToken":"refresh","expiresAt":"2020-01-01T00:00:00.000Z","clientIdHash":"abc123","authMethod":"social","unknownField":{"nested":true}}
+        {"accessToken":"old","refreshToken":"refresh","expiresAt":"2020-01-01T00:00:00.000Z","clientIdHash":"abc123","authMethod":"social","startUrl":"https://view.awsapps.com/start","unknownField":{"nested":true}}
         """
         let files = MemoryFiles([
             KiroAuthStore.primaryAuthPath: token,
@@ -395,7 +421,64 @@ final class KiroTests: XCTestCase {
         XCTAssertEqual(object["refreshToken"] as? String, "rotated")
         XCTAssertEqual(object["profileArn"] as? String, "arn:new")
         XCTAssertEqual(object["authMethod"] as? String, "social")
+        XCTAssertEqual(object["startUrl"] as? String, "https://view.awsapps.com/start")
         XCTAssertNotNil(object["unknownField"])
+        XCTAssertFalse(saved.contains(#"\/"#))
+    }
+
+    func testRefreshReportsAnAWSOutageAsTransient() async throws {
+        let token = """
+        {"accessToken":"old","refreshToken":"refresh","clientIdHash":"abc123"}
+        """
+        let files = MemoryFiles([
+            KiroAuthStore.primaryAuthPath: token,
+            "~/.aws/sso/cache/abc123.json": """
+            {"clientId":"client","clientSecret":"secret"}
+            """
+        ])
+        let store = KiroAuthStore(
+            files: files,
+            environment: MockEnvironment(),
+            dateProvider: FixedDateProvider(value: now)
+        )
+        var state = try XCTUnwrap(store.load())
+        let http = RoutedHTTPClient([
+            "https://oidc.us-east-1.amazonaws.com/token": [httpResponse(503)]
+        ])
+
+        do {
+            _ = try await store.refresh(&state, client: http)
+            XCTFail("An AWS outage must not read as a sign-out")
+        } catch let failure as ProviderFailure {
+            XCTAssertEqual(failure.kind, .transient)
+        }
+        XCTAssertEqual(files.value(at: KiroAuthStore.primaryAuthPath), token)
+    }
+
+    func testProviderReportsARejectedAPIKeyAsTheKeys() async throws {
+        let http = RoutedHTTPClient([
+            "https://q.us-east-1.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST": [
+                httpResponse(403)
+            ]
+        ])
+        let provider = KiroProvider(
+            authStore: KiroAuthStore(
+                files: MemoryFiles(),
+                environment: MockEnvironment(values: ["KIRO_API_KEY": "revoked"]),
+                dateProvider: FixedDateProvider(value: now)
+            ),
+            client: KiroUsageClient(client: http),
+            httpClient: http,
+            dateProvider: FixedDateProvider(value: now)
+        )
+
+        do {
+            _ = try await provider.fetch()
+            XCTFail("A rejected key must fail")
+        } catch let failure as ProviderFailure {
+            XCTAssertEqual(failure.kind, .authentication)
+            XCTAssertEqual(failure.message, "Kiro rejected KIRO_API_KEY. Check the key.")
+        }
     }
 
     func testAuthStoreGivesUpWhenKiroRotatedTheTokenFirst() async throws {

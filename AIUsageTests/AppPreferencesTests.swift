@@ -452,7 +452,7 @@ final class AppPreferencesTests: XCTestCase {
         let firstUpdatedRun = AppPreferences(defaults: defaults)
         XCTAssertEqual(
             firstUpdatedRun.trackedProviderIDs,
-            [.claude, .cursor, .antigravity, .copilot, .devin, .grok, .zai]
+            [.claude, .cursor, .antigravity, .copilot, .devin, .grok, .kiro, .zai]
         )
 
         firstUpdatedRun.setTracking(false, for: .grok)
@@ -499,7 +499,7 @@ final class AppPreferencesTests: XCTestCase {
         }
         XCTAssertEqual(
             AppPreferences(defaults: defaults).trackedProviderIDs,
-            [.claude, .codex, .zai]
+            [.claude, .codex, .kiro, .zai]
         )
     }
 
@@ -514,10 +514,31 @@ final class AppPreferencesTests: XCTestCase {
         defaults.set(true, forKey: "zaiProviderAdded.v1")
 
         let restored = AppPreferences(defaults: defaults)
-        XCTAssertEqual(restored.trackedProviderIDs, [.claude, .codex, .antigravity, .zai])
+        XCTAssertEqual(
+            restored.trackedProviderIDs,
+            [.claude, .codex, .antigravity, .kiro, .zai]
+        )
 
         restored.setTracking(false, for: .zai)
         XCTAssertFalse(AppPreferences(defaults: defaults).isTracking(.zai))
+    }
+
+    @MainActor
+    func testKiroIsSeededOnceForExistingInstallations() throws {
+        // A 0.3.2 installation: every earlier seed ran and was saved.
+        defaults.set(
+            try JSONEncoder().encode([ProviderID.claude, .codex]),
+            forKey: "trackedProviderIDs.v1"
+        )
+        defaults.set(true, forKey: "openUsageProvidersAdded.v1")
+        defaults.set(true, forKey: "seededProvidersRestored.v1")
+        defaults.set(true, forKey: "zaiProviderAdded.v1")
+
+        let updated = AppPreferences(defaults: defaults)
+        XCTAssertEqual(updated.trackedProviderIDs, [.claude, .codex, .kiro])
+
+        updated.setTracking(false, for: .kiro)
+        XCTAssertFalse(AppPreferences(defaults: defaults).isTracking(.kiro))
     }
 
     @MainActor

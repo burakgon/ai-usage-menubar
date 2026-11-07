@@ -18,26 +18,16 @@ enum KiroUsageMapper {
 
         var windows: [QuotaWindow] = []
         for item in breakdowns {
-            if let freeTrial = activeFreeTrialWindow(
-                item: item,
-                fallbackReset: resetDate
-            ) {
-                windows.append(freeTrial)
-                continue
+            let itemWindows = [
+                creditWindow(item: item, fallbackReset: resetDate),
+                activeFreeTrialWindow(item: item, fallbackReset: resetDate)
+            ]
+            // One window per kind: a second one would collide with the first
+            // one's id in the panel.
+            for case let window? in itemWindows
+            where !windows.contains(where: { $0.kind == window.kind }) {
+                windows.append(window)
             }
-            // A breakdown Kiro sent without a limit is not a quota; adding a
-            // zero-limit row would invent a window the account does not have.
-            guard let limit = limit(of: item), limit > 0 else { continue }
-            // A window that nothing reliable maps to a metric is skipped too,
-            // rather than folded into Credits where it would collide with the
-            // credit window's id.
-            guard let kind = quotaKind(for: item) else { continue }
-            windows.append(QuotaWindow(
-                kind: kind,
-                usedPercent: percent(usage(of: item), of: limit),
-                resetsAt: ProviderParsing.date(item["nextDateReset"]) ??
-                    resetDate
-            ))
         }
 
         return ProviderSnapshot(
@@ -51,6 +41,31 @@ enum KiroUsageMapper {
 
     // MARK: - Windows
 
+    /// Kiro's monthly credits. A `CREDIT` entry is the only limit Kiro has
+    /// been seen to report; other entries are left out rather than given a
+    /// label Kiro never used, and an entry without a limit is not a quota.
+    private static func creditWindow(
+        item: [String: Any],
+        fallbackReset: Date?
+    ) -> QuotaWindow? {
+        guard let type = ProviderParsing.string(item["resourceType"])?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased(),
+            type == "CREDIT" || type == "CREDITS",
+            let limit = limit(of: item),
+            limit > 0 else {
+            return nil
+        }
+        return QuotaWindow(
+            kind: .credits,
+            usedPercent: percent(usage(of: item), of: limit),
+            resetsAt: ProviderParsing.date(item["nextDateReset"]) ??
+                fallbackReset
+        )
+    }
+
+    /// The bonus credits of an active free trial. They come on top of the
+    /// entry's own credits, so both are shown.
     private static func activeFreeTrialWindow(
         item: [String: Any],
         fallbackReset: Date?
@@ -70,44 +85,6 @@ enum KiroUsageMapper {
         )
     }
 
-    /// The window a breakdown belongs to, or `nil` when Kiro did not say.
-    /// Names and resource types are matched in both forms Kiro has shipped
-    /// (`daily`/`weekly`, `credit`/`credits`, `agentic_request`) exactly,
-    /// because a substring match would file an unrelated row under Credits.
-    private static func quotaKind(for item: [String: Any]) -> QuotaKind? {
-        guard let resourceType = normalized(item["resourceType"]),
-              let resource = KiroResourceType(rawValue: resourceType) else {
-            return nil
-        }
-        switch resource {
-        case .credit:
-            return .credits
-        case .agenticRequest:
-            guard let name = normalized(item["displayName"]) else { return nil }
-            switch name {
-            case "daily": return .daily
-            case "session": return .session
-            case "weekly": return .weekly
-            default: return nil
-            }
-        }
-    }
-
-    /// Kiro reports either a bare word, a display name, or a plural display
-    /// name for the same window.
-    private static func normalized(_ value: Any?) -> String? {
-        guard let text = ProviderParsing.string(value)?
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !text.isEmpty else {
-            return nil
-        }
-        var normalized = text.lowercased()
-        if normalized.hasSuffix("s"), normalized.count > 1 {
-            normalized.removeLast()
-        }
-        return normalized
-    }
-
     private static func usage(of object: [String: Any]) -> Double {
         ProviderParsing.double(object["currentUsageWithPrecision"]) ??
             ProviderParsing.double(object["currentUsage"]) ??
@@ -119,28 +96,26 @@ enum KiroUsageMapper {
             ProviderParsing.double(object["usageLimit"])
     }
 
-    /// Clamps only the bar, like the other providers. The reported percentage
-    /// is kept as it arrives.
+    /// Kiro reports usage and a limit, not a percentage, so the calculated
+    /// percentage is bounded to `0...100` like the other providers'.
     private static func percent(_ usage: Double, of limit: Double) -> Double {
         min(max((usage / limit) * 100, 0), 100)
     }
 
     // MARK: - Plan
 
-    /// The plan title Kiro reports, or `nil` when it reports none. A missing
-    /// subscription is not evidence of a free plan.
+    /// The plan title Kiro shows without the product name, so "KIRO PRO+" is
+    /// "Pro+". `nil` when Kiro reports no title: a missing subscription is not
+    /// evidence of a free plan, and the subscription `type` is an internal
+    /// identifier such as `Q_DEVELOPER_STANDALONE_STUDENT`, not a plan name.
     private static func planName(from body: [String: Any]) -> String? {
         let subscription = ProviderParsing.object(body["subscriptionInfo"])
-        guard let raw = ProviderParsing.string(
+        guard let title = ProviderParsing.string(
             subscription?["subscriptionTitle"]
-        ) ?? ProviderParsing.string(subscription?["type"]),
-            !raw.isEmpty else {
+        ) else {
             return nil
         }
-
-        // "KIRO STUDENT" is a Kiro-specific title; the tier is what the user
-        // recognizes.
-        let cleaned = raw
+        let name = title
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(
                 of: #"^kiro\s+"#,
@@ -148,26 +123,13 @@ enum KiroUsageMapper {
                 options: [.caseInsensitive, .regularExpression]
             )
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else { return nil }
+        guard !name.isEmpty else { return nil }
 
-        if cleaned.localizedCaseInsensitiveContains("free") {
-            return "Free"
-        }
-        if cleaned.localizedCaseInsensitiveContains("pro") {
-            return "Pro"
-        }
-        if cleaned.localizedCaseInsensitiveContains("enterprise") {
-            return "Enterprise"
-        }
-        // A subscription `type` is an identifier such as
-        // `Q_DEVELOPER_STANDALONE_STUDENT`, and titles arrive shouting as
-        // "KIRO STUDENT"; both read better title-cased. A title that is
-        // already readable is left as Kiro wrote it.
-        let letters = cleaned.filter(\.isLetter)
-        let shouts = !letters.isEmpty && letters.allSatisfy(\.isUppercase)
-        return cleaned.contains("_") || shouts
-            ? ProviderParsing.titleCaseIdentifier(cleaned)
-            : cleaned
+        // Titles arrive in capitals ("KIRO STUDENT") and read better in title
+        // case. A title Kiro already wrote in mixed case is kept as written.
+        let letters = name.filter(\.isLetter)
+        let isCapitals = !letters.isEmpty && letters.allSatisfy(\.isUppercase)
+        return isCapitals ? ProviderParsing.titleCaseIdentifier(name) : name
     }
 
     // MARK: - Billing
@@ -213,21 +175,5 @@ enum KiroUsageMapper {
         key: String
     ) -> String? {
         breakdowns.compactMap { ProviderParsing.string($0[key]) }.first
-    }
-}
-
-/// Kiro's `resourceType` values. Anything else is a probe row this app does
-/// not know how to label, so it is left out instead of being forced into
-/// Credits.
-private enum KiroResourceType: String {
-    case credit = "credit"
-    case agenticRequest = "agentic_request"
-
-    init?(rawValue: String) {
-        switch rawValue {
-        case "credit", "credits": self = .credit
-        case "agentic_request", "agentic_requests": self = .agenticRequest
-        default: return nil
-        }
     }
 }

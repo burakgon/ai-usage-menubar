@@ -110,8 +110,7 @@ final class AppPreferences {
                 (canRestore && !restored.contains(.zai)) {
                 initialTrackedProviders.insert(.zai)
             }
-            if defaults.object(forKey: Key.kiroProviderAdded) == nil ||
-                (canRestore && !restored.contains(.kiro)) {
+            if defaults.object(forKey: Key.kiroProviderAdded) == nil {
                 initialTrackedProviders.insert(.kiro)
             }
         }

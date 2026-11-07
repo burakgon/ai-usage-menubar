@@ -156,7 +156,7 @@ causes at most one refresh and one retry.
 | GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
 | Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
 | Grok | `~/.grok/auth.json` | Grok CLI billing and settings APIs | Weekly |
-| Kiro | `~/.aws/sso/cache/kiro-auth-token.json` (or `-cli.json`), then `KIRO_API_KEY` | `q.<region>.amazonaws.com/getUsageLimits` | Credits, free trial, session, weekly, daily |
+| Kiro | `~/.aws/sso/cache/kiro-auth-token.json` (or `-cli.json`), then `KIRO_API_KEY` | `q.<region>.amazonaws.com/getUsageLimits` | Credits, Free Trial |
 | Z.ai | `ZAI_API_KEY`, Claude Code `settings.json` pointed at Z.ai, then OpenCode `auth.json` | `GET /api/monitor/usage/quota/limit` on `api.z.ai` or `open.bigmodel.cn` | Session, Weekly, Web Searches |
 
 Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
@@ -187,16 +187,18 @@ CLI's bundled `features/api-key-authentication` guide (`kiro-cli login --help`,
 `kiro-cli logout`). AI Usage never asks for credentials.
 
 `GET https://q.<region>.amazonaws.com/getUsageLimits?origin=AI_EDITOR&resourceType=AGENTIC_REQUEST`
-returns a `usageBreakdownList` whose entries are matched exactly: a `CREDIT`
-entry is Credits, and an `AGENTIC_REQUEST` entry is Session, Weekly, or Daily
-according to its display name. An active `freeTrialInfo` becomes a Free Trial
-window using its own limit and expiry. An entry Kiro sent without a limit, or
-with a resource type this build does not recognize, is left out rather than
-filed under Credits — otherwise several entries would collide on one window id.
-`subscriptionInfo.subscriptionTitle` (or `type`) names the plan; a missing
-subscription is reported as no plan, not as Free. An enabled
-`overageConfiguration` adds on-demand spend from `overageCharges`, capped by
-`overageCap × overageRate` only when Kiro reports both — no rate is assumed.
+returns a `usageBreakdownList`. A `CREDIT` entry with a `usageLimit` is
+Credits, the only limit a live account has been seen to report; any other
+entry is left out rather than given a label Kiro never used. An active
+`freeTrialInfo` on an entry adds a Free Trial window, with its own limit and
+`freeTrialExpiry`, beside that entry's Credits. Each window appears once, so a
+repeated entry cannot collide with another on one window id. The plan is
+`subscriptionInfo.subscriptionTitle` without the leading "Kiro", so
+`KIRO PRO+` reads as Pro+. Without a title there is no plan: a missing
+subscription is not evidence of Free, and `type` is an internal identifier
+such as `Q_DEVELOPER_STANDALONE_STUDENT`. An enabled `overageConfiguration`
+adds on-demand spend from `overageCharges`, capped by `overageCap × overageRate`
+only when Kiro reports both. No rate is assumed.
 
 A `401`/`403` refreshes the token once through
 `https://oidc.<region>.amazonaws.com/token` and writes the rotated access and
@@ -205,8 +207,10 @@ refreshes the same token, the store re-reads the file before writing and
 abandons the write when `refreshToken` changed since the state was loaded.
 `region` comes from the token file and is interpolated into both hosts, so it is
 accepted only when it matches an AWS region name
-(`^[a-z]{2}(-[a-z]+)+-\d+$`); anything else falls back to `us-east-1`. A `429`
-honors `Retry-After`.
+(`^[a-z]{2}(-[a-z]+)+-\d+$`); anything else falls back to `us-east-1`. A `5xx`
+from the OIDC endpoint is a transient failure, not a sign-out. A rejected
+`KIRO_API_KEY` is reported as the key's rejection, since there is no sign-in to
+renew. A `429` honors `Retry-After`.
 
 ### Antigravity
 

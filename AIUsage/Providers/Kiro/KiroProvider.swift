@@ -22,6 +22,14 @@ actor KiroProvider: UsageProvider {
 
     private static let signInMessage =
         "Kiro needs you to sign in again. Open Kiro or run `kiro-cli login`."
+    private static let apiKeyMessage =
+        "Kiro rejected KIRO_API_KEY. Check the key."
+
+    /// A key from `KIRO_API_KEY` has no sign-in to renew, so its rejection
+    /// is reported as the key's, not as a sign-out.
+    private static func rejectionMessage(for auth: KiroAuthState) -> String {
+        auth.tokenPath.isEmpty ? apiKeyMessage : signInMessage
+    }
 
     func fetch() async throws -> ProviderSnapshot {
         guard var auth = authStore.load() else {
@@ -58,7 +66,10 @@ actor KiroProvider: UsageProvider {
                     &auth,
                     client: httpClient
                 ) else {
-                    throw ProviderFailure(.authentication, Self.signInMessage)
+                    throw ProviderFailure(
+                        .authentication,
+                        Self.rejectionMessage(for: auth)
+                    )
                 }
             } catch let failure as ProviderFailure {
                 throw failure
@@ -73,7 +84,10 @@ actor KiroProvider: UsageProvider {
         }
 
         if response.statusCode == 401 || response.statusCode == 403 {
-            throw ProviderFailure(.authentication, Self.signInMessage)
+            throw ProviderFailure(
+                .authentication,
+                Self.rejectionMessage(for: auth)
+            )
         }
 
         if response.statusCode == 429 {

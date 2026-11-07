@@ -244,6 +244,11 @@ struct KiroAuthStore: Sendable {
                     "Kiro session expired. Sign in through Kiro."
                 )
             }
+            if response.statusCode >= 500 {
+                // AWS is down, not the session: say so instead of falling
+                // through to a request that would report a sign-out.
+                throw ProviderFailure(.transient, "Kiro could not be reached.")
+            }
             return false
         }
 
@@ -315,7 +320,7 @@ struct KiroAuthStore: Sendable {
 
         let updated = try JSONSerialization.data(
             withJSONObject: existing,
-            options: [.prettyPrinted, .sortedKeys]
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
         guard let output = String(data: updated, encoding: .utf8) else {
             throw ProviderFailure(

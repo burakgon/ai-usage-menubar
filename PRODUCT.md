@@ -53,8 +53,8 @@ database, or background transcript scanning.
 ## Capabilities and Constraints
 
 - Supported providers are Claude Code, Codex, Cursor, Antigravity, GitHub
-  Copilot, Devin, Grok, and Z.ai. A provider is added only when AI Usage can
-  reuse a sign-in or key another local tool already holds.
+  Copilot, Devin, Grok, Kiro, and Z.ai. A provider is added only when AI Usage
+  can reuse a sign-in or key another local tool already holds.
 - Claude Code surfaces session, weekly, Sonnet, and Fable quota windows.
 - Codex surfaces session, weekly, Spark, and Spark Weekly quota windows.
 - Claude Code and Codex also surface banked usage-limit resets and their

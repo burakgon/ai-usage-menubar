@@ -160,7 +160,10 @@ final class VisualSnapshotTests: XCTestCase {
             let width = MenuBarPanelRoute.settings.width
             let size = measuredSize(of: view, width: width)
             XCTAssertEqual(size.width, width, accuracy: 0.5)
-            XCTAssertLessThan(size.height, 720)
+            // Nine providers. The panel still has to open in full below the
+            // menu bar of a 1440x900 display; another provider should make
+            // room by leaving tools that aren't installed out of this list.
+            XCTAssertLessThan(size.height, 800)
             XCTAssertGreaterThan(size.height, 620)
         }
 
