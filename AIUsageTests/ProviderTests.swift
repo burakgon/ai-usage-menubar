@@ -64,6 +64,50 @@ final class ProviderTests: XCTestCase {
         XCTAssertEqual(savedDocument.claudeAiOauth?.refreshToken, "new-refresh")
     }
 
+    func testClaudeOrganizationBlockDoesNotRefreshAndReportsReason() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let oauth = ClaudeOAuth(
+            accessToken: "access",
+            refreshToken: "refresh",
+            expiresAt: (now.timeIntervalSince1970 + 3_600) * 1_000,
+            subscriptionType: nil,
+            rateLimitTier: nil,
+            scopes: ["user:profile"]
+        )
+        let keychain = MemoryKeychain(currentUser: [
+            "Claude Code-credentials":
+                encodedJSON(ClaudeCredentialsDocument(claudeAiOauth: oauth))
+        ])
+        let http = MockHTTPClient([
+            httpResponse(403, json: """
+            {"type":"error","error":{"type":"permission_error","details":{"error_code":"oauth_not_allowed_for_organization"}}}
+            """)
+        ])
+        let date = FixedDateProvider(value: now)
+        let provider = ClaudeProvider(
+            authStore: ClaudeAuthStore(
+                environment: MockEnvironment(),
+                files: MemoryFiles(),
+                keychain: keychain,
+                dateProvider: date
+            ),
+            client: ClaudeUsageClient(http: http),
+            dateProvider: date
+        )
+
+        do {
+            _ = try await provider.fetch()
+            XCTFail("Expected authentication failure")
+        } catch let failure as ProviderFailure {
+            XCTAssertEqual(failure.kind, .authentication)
+            XCTAssertTrue(failure.message.contains("organization"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        let requests = await http.capturedRequests()
+        XCTAssertFalse(requests.contains { $0.url == ClaudeAuthStore.refreshURL })
+    }
+
     func testClaudeCooldownSkipsSecondRequestAfter429() async {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let oauth = ClaudeOAuth(
