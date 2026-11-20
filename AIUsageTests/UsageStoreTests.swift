@@ -67,10 +67,13 @@ final class UsageStoreTests: XCTestCase {
         let fast = store(used: 40)
         await fast.refresh()
         XCTAssertEqual(fast.menuBarReading(for: item)?.isAtRisk, true)
+        XCTAssertEqual(fast.menuBarReading(for: item)?.resetsAt, t0.addingTimeInterval(5 * 3_600))
+        XCTAssertEqual(fast.menuBarReading(for: item)?.exhaustsAt, t0.addingTimeInterval(2.5 * 3_600))
 
         let slow = store(used: 10)
         await slow.refresh()
         XCTAssertEqual(slow.menuBarReading(for: item)?.isAtRisk, false)
+        XCTAssertNil(slow.menuBarReading(for: item)?.exhaustsAt)
     }
 
     func testAuthenticationFailureClearsLastGoodAndHidesUnavailableMetric() async {

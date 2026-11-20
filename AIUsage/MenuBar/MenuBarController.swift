@@ -503,7 +503,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         let collectionPresentation = MenuBarReadingsPresentation(
             groups: groups
         )
-        button.toolTip = collectionPresentation.accessibilityLabel
+        button.toolTip = MenuBarTooltip.text(for: groups, now: Date())
         button.setAccessibilityLabel(collectionPresentation.accessibilityLabel)
 
         guard !groups.isEmpty else {

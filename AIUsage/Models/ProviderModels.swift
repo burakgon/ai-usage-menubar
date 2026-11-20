@@ -505,9 +505,15 @@ struct ProviderSnapshot: Equatable, Sendable {
     /// The metric's window runs out before its reset at its current pace,
     /// and that reset is still ahead of `now`.
     func isAtRisk(_ metric: MenuBarMetricID, now: Date) -> Bool {
+        exhaustion(for: metric, now: now) != nil
+    }
+
+    /// When the metric's window fills at its current pace, while its reset
+    /// is still ahead of `now` and comes after that.
+    func exhaustion(for metric: MenuBarMetricID, now: Date) -> Date? {
         guard let window = window(for: metric),
-              let reset = window.resetsAt, now < reset else { return false }
-        return window.projectedExhaustion(measuredAt: fetchedAt) != nil
+              let reset = window.resetsAt, now < reset else { return nil }
+        return window.projectedExhaustion(measuredAt: fetchedAt)
     }
 
     var availableMenuBarItems: [MenuBarItemID] {

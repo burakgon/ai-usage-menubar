@@ -9,6 +9,9 @@ struct MenuBarReading: Equatable, Sendable {
     let isStale: Bool
     /// The window runs out before its reset at its current pace.
     let isAtRisk: Bool
+    let resetsAt: Date?
+    /// When the window fills at its current pace, if before `resetsAt`.
+    let exhaustsAt: Date?
 
     init(
         provider: ProviderID,
@@ -16,7 +19,9 @@ struct MenuBarReading: Equatable, Sendable {
         value: MenuBarReadingValue,
         displayMode: UsageDisplayMode,
         isStale: Bool,
-        isAtRisk: Bool = false
+        isAtRisk: Bool = false,
+        resetsAt: Date? = nil,
+        exhaustsAt: Date? = nil
     ) {
         self.provider = provider
         self.metric = metric
@@ -24,6 +29,8 @@ struct MenuBarReading: Equatable, Sendable {
         self.displayMode = displayMode
         self.isStale = isStale
         self.isAtRisk = isAtRisk
+        self.resetsAt = resetsAt
+        self.exhaustsAt = exhaustsAt
     }
 }
 
@@ -240,13 +247,16 @@ final class UsageStore {
                 return nil
             }
 
+            let exhaustion = state.snapshot?.exhaustion(for: item.metric, now: now)
             return MenuBarReading(
                 provider: item.provider,
                 metric: item.metric,
                 value: value,
                 displayMode: displayMode,
                 isStale: state.isStale,
-                isAtRisk: state.snapshot?.isAtRisk(item.metric, now: now) ?? false
+                isAtRisk: exhaustion != nil,
+                resetsAt: state.snapshot?.window(for: item.metric)?.resetsAt,
+                exhaustsAt: exhaustion
             )
         }
     }
