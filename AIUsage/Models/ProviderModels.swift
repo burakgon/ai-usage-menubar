@@ -370,10 +370,28 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
 
     /// When the window fills at its average pace since it started, measured
     /// when `usedPercent` was read; `nil` unless that comes before the reset.
-    func projectedExhaustion(measuredAt: Date) -> Date? {
+    /// With a `schedule`, a window longer than a day measures its pace in
+    /// working time, so nights and days off neither slow the pace nor count
+    /// as time left to use.
+    func projectedExhaustion(
+        measuredAt: Date,
+        schedule: WorkSchedule? = nil,
+        calendar: Calendar = .current
+    ) -> Date? {
         guard let start = startsAt, let reset = resetsAt,
               usedPercent > 0, usedPercent < 100,
               start < measuredAt, measuredAt < reset else { return nil }
+
+        if let schedule, reset.timeIntervalSince(start) > 86_400 {
+            let elapsed = schedule.workingTime(from: start, to: measuredAt, calendar: calendar)
+            let total = schedule.workingTime(from: start, to: reset, calendar: calendar)
+            guard elapsed > 0, elapsed >= total * Self.minimumElapsedFraction else { return nil }
+            let needed = (100 - usedPercent) * elapsed / usedPercent
+            guard needed < schedule.workingTime(from: measuredAt, to: reset, calendar: calendar)
+            else { return nil }
+            return schedule.date(byAddingWorkingTime: needed, to: measuredAt, calendar: calendar)
+        }
+
         let elapsed = measuredAt.timeIntervalSince(start)
         guard elapsed >= reset.timeIntervalSince(start) * Self.minimumElapsedFraction
         else { return nil }
