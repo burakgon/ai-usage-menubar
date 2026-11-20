@@ -249,7 +249,9 @@ struct QuotaTimingPresentation: Equatable {
         }
         let resetText = CompactCountdown.text(until: reset, from: now)
             .map { "Reset \($0)" } ?? "Resetting"
-        guard let exhaustion = window.projectedExhaustion(measuredAt: measuredAt) else {
+        // Once the reset has passed, the reading predates it: no forecast.
+        guard now < reset,
+              let exhaustion = window.projectedExhaustion(measuredAt: measuredAt) else {
             isAtRisk = false
             text = resetText
             compactText = resetText

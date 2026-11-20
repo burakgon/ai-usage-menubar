@@ -228,7 +228,8 @@ final class UsageStore {
         for items: [MenuBarItemID],
         displayMode: UsageDisplayMode = .used
     ) -> [MenuBarReading] {
-        items.compactMap { item in
+        let now = Date()
+        return items.compactMap { item in
             guard trackedProviderIDs.contains(item.provider),
                   let state = states[item.provider],
                   state.isToolInstalled != false,
@@ -245,7 +246,7 @@ final class UsageStore {
                 value: value,
                 displayMode: displayMode,
                 isStale: state.isStale,
-                isAtRisk: state.snapshot?.isAtRisk(item.metric) ?? false
+                isAtRisk: state.snapshot?.isAtRisk(item.metric, now: now) ?? false
             )
         }
     }

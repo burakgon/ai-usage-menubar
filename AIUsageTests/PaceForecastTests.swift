@@ -116,6 +116,28 @@ final class PaceForecastTests: XCTestCase {
         XCTAssertEqual(presentation.compactText, "Full soon")
     }
 
+    func testTimingDropsForecastOnceResetHasPassed() {
+        let presentation = QuotaTimingPresentation(
+            window: session(used: 85),
+            measuredAt: t0.addingTimeInterval(4 * hour),
+            now: t0.addingTimeInterval(5 * hour + 600)
+        )
+        XCTAssertFalse(presentation.isAtRisk)
+        XCTAssertEqual(presentation.text, "Resetting")
+        XCTAssertEqual(presentation.compactText, "Resetting")
+    }
+
+    func testSnapshotRiskEndsOnceResetHasPassed() {
+        let snapshot = ProviderSnapshot(
+            provider: .claude,
+            planName: nil,
+            windows: [session(used: 85)],
+            fetchedAt: t0.addingTimeInterval(4 * hour)
+        )
+        XCTAssertTrue(snapshot.isAtRisk(.session, now: t0.addingTimeInterval(4 * hour + 60)))
+        XCTAssertFalse(snapshot.isAtRisk(.session, now: t0.addingTimeInterval(5 * hour + 600)))
+    }
+
     func testTimingWithoutResetHasNoText() {
         let presentation = QuotaTimingPresentation(
             window: session(used: 40, noReset: true),
