@@ -79,4 +79,51 @@ final class PaceForecastTests: XCTestCase {
         )
         XCTAssertNil(ProviderParsing.monthStart(endingAt: nil))
     }
+
+    // MARK: - Tile timing
+
+    private func timing(used: Double, nowAfter minutes: Double) -> QuotaTimingPresentation {
+        QuotaTimingPresentation(
+            window: session(used: used),
+            measuredAt: t0.addingTimeInterval(hour),
+            now: t0.addingTimeInterval(minutes * 60)
+        )
+    }
+
+    func testAtRiskTimingShowsFullBeforeReset() {
+        let presentation = timing(used: 40, nowAfter: 70)
+        XCTAssertTrue(presentation.isAtRisk)
+        XCTAssertEqual(presentation.text, "Full 1h 20m · Reset 3h 50m")
+        XCTAssertEqual(presentation.compactText, "Full 1h 20m")
+        XCTAssertEqual(
+            presentation.accessibilityText,
+            "full in 1h 20m at this pace, Reset 3h 50m"
+        )
+    }
+
+    func testSafeTimingKeepsResetOnly() {
+        let presentation = timing(used: 10, nowAfter: 70)
+        XCTAssertFalse(presentation.isAtRisk)
+        XCTAssertEqual(presentation.text, "Reset 3h 50m")
+        XCTAssertEqual(presentation.compactText, "Reset 3h 50m")
+        XCTAssertEqual(presentation.accessibilityText, "Reset 3h 50m")
+    }
+
+    func testPastProjectionReadsFullSoon() {
+        let presentation = timing(used: 40, nowAfter: 190)
+        XCTAssertTrue(presentation.isAtRisk)
+        XCTAssertEqual(presentation.text, "Full soon · Reset 1h 50m")
+        XCTAssertEqual(presentation.compactText, "Full soon")
+    }
+
+    func testTimingWithoutResetHasNoText() {
+        let presentation = QuotaTimingPresentation(
+            window: session(used: 40, noReset: true),
+            measuredAt: t0.addingTimeInterval(hour),
+            now: t0.addingTimeInterval(hour)
+        )
+        XCTAssertFalse(presentation.isAtRisk)
+        XCTAssertNil(presentation.text)
+        XCTAssertNil(presentation.accessibilityText)
+    }
 }

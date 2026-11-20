@@ -20,6 +20,7 @@ struct ProviderSectionView: View {
                 if !snapshot.windows.isEmpty {
                     QuotaGrid(
                         windows: snapshot.windows,
+                        measuredAt: snapshot.fetchedAt,
                         displayMode: displayMode
                     )
                     .padding(.horizontal, 10)
@@ -230,6 +231,41 @@ enum CompactCountdown {
     }
 }
 
+/// The tile's reset line, with when the window fills at its current pace
+/// when that comes first.
+struct QuotaTimingPresentation: Equatable {
+    let isAtRisk: Bool
+    let text: String?
+    let compactText: String?
+    let accessibilityText: String?
+
+    init(window: QuotaWindow, measuredAt: Date, now: Date) {
+        guard let reset = window.resetsAt else {
+            isAtRisk = false
+            text = nil
+            compactText = nil
+            accessibilityText = nil
+            return
+        }
+        let resetText = CompactCountdown.text(until: reset, from: now)
+            .map { "Reset \($0)" } ?? "Resetting"
+        guard let exhaustion = window.projectedExhaustion(measuredAt: measuredAt) else {
+            isAtRisk = false
+            text = resetText
+            compactText = resetText
+            accessibilityText = resetText
+            return
+        }
+        let full = CompactCountdown.text(until: exhaustion, from: now)
+        isAtRisk = true
+        let fullText = full.map { "Full \($0)" } ?? "Full soon"
+        let spokenFull = full.map { "full in \($0)" } ?? "full soon"
+        compactText = fullText
+        text = "\(fullText) · \(resetText)"
+        accessibilityText = "\(spokenFull) at this pace, \(resetText)"
+    }
+}
+
 struct ResetsPresentation: Equatable {
     static let expiringSoonInterval: TimeInterval = 24 * 60 * 60
 
@@ -329,6 +365,7 @@ private struct ResetsRow: View {
 
 private struct QuotaGrid: View {
     let windows: [QuotaWindow]
+    let measuredAt: Date
     let displayMode: UsageDisplayMode
 
     var body: some View {
@@ -336,7 +373,11 @@ private struct QuotaGrid: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
                 HStack(spacing: 0) {
                     ForEach(Array(row.enumerated()), id: \.element.id) { columnIndex, window in
-                        QuotaTile(window: window, displayMode: displayMode)
+                        QuotaTile(
+                            window: window,
+                            measuredAt: measuredAt,
+                            displayMode: displayMode
+                        )
 
                         if columnIndex == 0, row.count == 2 {
                             Color(nsColor: .separatorColor)
@@ -365,10 +406,16 @@ private struct QuotaGrid: View {
 
 private struct QuotaTile: View {
     let window: QuotaWindow
+    let measuredAt: Date
     let displayMode: UsageDisplayMode
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
+            let timing = QuotaTimingPresentation(
+                window: window,
+                measuredAt: measuredAt,
+                now: context.date
+            )
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(window.kind.title)
@@ -404,12 +451,20 @@ private struct QuotaTile: View {
                 .frame(height: 4)
                 .accessibilityHidden(true)
 
-                if let reset = window.resetsAt {
+                if let text = timing.text, let compactText = timing.compactText {
                     HStack(spacing: 5) {
-                        Image(systemName: "clock")
-                            .foregroundStyle(.tertiary)
-                        Text(resetText(reset, relativeTo: context.date))
-                            .foregroundStyle(.secondary)
+                        if timing.isAtRisk {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(UsagePalette.warning)
+                        } else {
+                            Image(systemName: "clock")
+                                .foregroundStyle(.tertiary)
+                        }
+                        ViewThatFits(in: .horizontal) {
+                            Text(text)
+                            Text(compactText)
+                        }
+                        .foregroundStyle(.secondary)
                     }
                     .font(.caption2)
                     .lineLimit(1)
@@ -421,7 +476,7 @@ private struct QuotaTile: View {
             .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(window.kind.title)
-            .accessibilityValue(accessibilityValue(relativeTo: context.date))
+            .accessibilityValue(accessibilityValue(timing))
         }
     }
 
@@ -449,19 +504,12 @@ private struct QuotaTile: View {
         }
     }
 
-    private func resetText(_ date: Date, relativeTo now: Date) -> String {
-        guard let countdown = CompactCountdown.text(until: date, from: now) else {
-            return "Resetting"
-        }
-        return "Reset \(countdown)"
-    }
-
-    private func accessibilityValue(relativeTo now: Date) -> String {
+    private func accessibilityValue(_ timing: QuotaTimingPresentation) -> String {
         let usage = "\(percentText) \(displayMode.valueSuffix)"
-        guard let reset = window.resetsAt else {
+        guard let timingText = timing.accessibilityText else {
             return usage
         }
-        return "\(usage), \(resetText(reset, relativeTo: now))"
+        return "\(usage), \(timingText)"
     }
 }
 
