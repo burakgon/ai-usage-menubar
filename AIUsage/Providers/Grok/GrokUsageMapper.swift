@@ -50,7 +50,9 @@ enum GrokUsageMapper {
                         config["creditUsagePercent"]
                     ) ?? 0
                 ),
-                resetsAt: end
+                resetsAt: end,
+                startsAt: ProviderParsing.date(period["start"]) ??
+                    ProviderParsing.windowStart(endingAt: end, length: 7 * 86_400)
             ))
         }
         guard !windows.isEmpty else {

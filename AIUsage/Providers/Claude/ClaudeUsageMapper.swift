@@ -71,9 +71,9 @@ enum ClaudeUsageMapper {
         let body = try ProviderParsing.object(from: response.body)
         var windows: [QuotaWindow] = []
 
-        appendWindow(body["five_hour"], kind: .session, to: &windows)
-        appendWindow(body["seven_day"], kind: .weekly, to: &windows)
-        appendWindow(body["seven_day_sonnet"], kind: .sonnet, to: &windows)
+        appendWindow(body["five_hour"], kind: .session, length: sessionLength, to: &windows)
+        appendWindow(body["seven_day"], kind: .weekly, length: weekLength, to: &windows)
+        appendWindow(body["seven_day_sonnet"], kind: .sonnet, length: weekLength, to: &windows)
         appendFable(body["limits"], to: &windows)
 
         return ProviderSnapshot(
@@ -120,9 +120,13 @@ enum ClaudeUsageMapper {
         return "\(base) \(tier[range])"
     }
 
+    private static let sessionLength: TimeInterval = 5 * 3_600
+    private static let weekLength: TimeInterval = 7 * 86_400
+
     private static func appendWindow(
         _ value: Any?,
         kind: QuotaKind,
+        length: TimeInterval,
         to windows: inout [QuotaWindow]
     ) {
         guard
@@ -131,10 +135,12 @@ enum ClaudeUsageMapper {
         else {
             return
         }
+        let reset = ProviderParsing.date(object["resets_at"])
         windows.append(QuotaWindow(
             kind: kind,
             usedPercent: used,
-            resetsAt: ProviderParsing.date(object["resets_at"])
+            resetsAt: reset,
+            startsAt: ProviderParsing.windowStart(endingAt: reset, length: length)
         ))
     }
 
@@ -154,10 +160,12 @@ enum ClaudeUsageMapper {
             else {
                 continue
             }
+            let reset = ProviderParsing.date(limit["resets_at"])
             windows.append(QuotaWindow(
                 kind: .fable,
                 usedPercent: used,
-                resetsAt: ProviderParsing.date(limit["resets_at"])
+                resetsAt: reset,
+                startsAt: ProviderParsing.windowStart(endingAt: reset, length: weekLength)
             ))
             return
         }

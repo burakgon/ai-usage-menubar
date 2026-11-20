@@ -87,7 +87,11 @@ enum DevinUsageMapper {
         QuotaWindow(
             kind: kind,
             usedPercent: clampPercent(100 - quota.remaining),
-            resetsAt: quota.resetsAt
+            resetsAt: quota.resetsAt,
+            startsAt: ProviderParsing.windowStart(
+                endingAt: quota.resetsAt,
+                length: kind == .daily ? 86_400 : 7 * 86_400
+            )
         )
     }
 

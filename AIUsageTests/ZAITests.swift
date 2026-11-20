@@ -103,6 +103,15 @@ final class ZAITests: XCTestCase {
             snapshot.windows[0].resetsAt,
             Date(timeIntervalSince1970: 1_792_624_471.458)
         )
+        XCTAssertEqual(
+            snapshot.windows[0].startsAt,
+            Date(timeIntervalSince1970: 1_792_624_471.458 - 5 * 3_600)
+        )
+        XCTAssertEqual(
+            snapshot.windows[1].startsAt,
+            Date(timeIntervalSince1970: 1_793_154_828.977 - 604_800)
+        )
+        XCTAssertNil(snapshot.windows[2].startsAt)
     }
 
     func testExplainsAMissingPlanOrRejectedKey() {
