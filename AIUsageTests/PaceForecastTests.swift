@@ -138,6 +138,28 @@ final class PaceForecastTests: XCTestCase {
         XCTAssertFalse(snapshot.isAtRisk(.session, now: t0.addingTimeInterval(5 * hour + 600)))
     }
 
+    func testTimingFollowsTheWorkSchedule() {
+        let saturday = ProviderParsing.date("2027-01-23T12:00:00Z")!
+        let window = QuotaWindow(
+            kind: .weekly,
+            usedPercent: 85,
+            resetsAt: ProviderParsing.date("2027-01-25T08:00:00Z"),
+            startsAt: ProviderParsing.date("2027-01-18T08:00:00Z")
+        )
+        XCTAssertTrue(QuotaTimingPresentation(
+            window: window, measuredAt: saturday, now: saturday
+        ).isAtRisk)
+        XCTAssertFalse(QuotaTimingPresentation(
+            window: window, measuredAt: saturday, now: saturday, schedule: .standard
+        ).isAtRisk)
+
+        let snapshot = ProviderSnapshot(
+            provider: .claude, planName: nil, windows: [window], fetchedAt: saturday
+        )
+        XCTAssertNotNil(snapshot.exhaustion(for: .weekly, now: saturday))
+        XCTAssertNil(snapshot.exhaustion(for: .weekly, now: saturday, schedule: .standard))
+    }
+
     func testTimingWithoutResetHasNoText() {
         let presentation = QuotaTimingPresentation(
             window: session(used: 40, noReset: true),

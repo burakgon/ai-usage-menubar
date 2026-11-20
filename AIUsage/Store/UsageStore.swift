@@ -233,7 +233,8 @@ final class UsageStore {
 
     func menuBarReadings(
         for items: [MenuBarItemID],
-        displayMode: UsageDisplayMode = .used
+        displayMode: UsageDisplayMode = .used,
+        workSchedule: WorkSchedule? = nil
     ) -> [MenuBarReading] {
         let now = Date()
         return items.compactMap { item in
@@ -247,7 +248,11 @@ final class UsageStore {
                 return nil
             }
 
-            let exhaustion = state.snapshot?.exhaustion(for: item.metric, now: now)
+            let exhaustion = state.snapshot?.exhaustion(
+                for: item.metric,
+                now: now,
+                schedule: workSchedule
+            )
             return MenuBarReading(
                 provider: item.provider,
                 metric: item.metric,
@@ -263,7 +268,8 @@ final class UsageStore {
 
     func menuBarProviderReadings(
         for configurations: [MenuBarProviderConfiguration],
-        displayMode: UsageDisplayMode = .used
+        displayMode: UsageDisplayMode = .used,
+        workSchedule: WorkSchedule? = nil
     ) -> [MenuBarProviderReadings] {
         configurations.compactMap { configuration in
             guard trackedProviderIDs.contains(configuration.provider),
@@ -280,7 +286,8 @@ final class UsageStore {
             }
             var readings = menuBarReadings(
                 for: items,
-                displayMode: displayMode
+                displayMode: displayMode,
+                workSchedule: workSchedule
             )
             // Selected metrics can vanish from the live snapshot (for
             // example, Claude accounts without a five-hour window return
@@ -293,7 +300,8 @@ final class UsageStore {
                ) {
                 readings = menuBarReadings(
                     for: [fallback],
-                    displayMode: displayMode
+                    displayMode: displayMode,
+                    workSchedule: workSchedule
                 )
             }
             return MenuBarProviderReadings(
@@ -306,9 +314,14 @@ final class UsageStore {
 
     func menuBarReading(
         for item: MenuBarItemID,
-        displayMode: UsageDisplayMode = .used
+        displayMode: UsageDisplayMode = .used,
+        workSchedule: WorkSchedule? = nil
     ) -> MenuBarReading? {
-        menuBarReadings(for: [item], displayMode: displayMode).first
+        menuBarReadings(
+            for: [item],
+            displayMode: displayMode,
+            workSchedule: workSchedule
+        ).first
     }
 
     private func applyInstalledProviders(_ installedProviders: Set<ProviderID>?) {

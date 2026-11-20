@@ -76,6 +76,36 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertNil(slow.menuBarReading(for: item)?.exhaustsAt)
     }
 
+    func testMenuBarReadingsFollowTheWorkSchedule() async {
+        let saturday = ProviderParsing.date("2027-01-23T12:00:00Z")!
+        let snapshot = ProviderSnapshot(
+            provider: .claude,
+            planName: "Pro",
+            windows: [QuotaWindow(
+                kind: .weekly,
+                usedPercent: 85,
+                resetsAt: ProviderParsing.date("2027-01-25T08:00:00Z"),
+                startsAt: ProviderParsing.date("2027-01-18T08:00:00Z")
+            )],
+            fetchedAt: saturday
+        )
+        let store = UsageStore(
+            providers: [SequencedProvider(id: .claude, results: [.success(snapshot)])],
+            availabilityChecker: FixedProviderAvailabilityChecker(installed: [.claude])
+        )
+        let item = MenuBarItemID(provider: .claude, metric: .weekly)
+        await store.refresh()
+
+        XCTAssertEqual(store.menuBarReading(for: item)?.isAtRisk, true)
+        XCTAssertEqual(store.menuBarReading(for: item, workSchedule: .standard)?.isAtRisk, false)
+        let configuration = MenuBarProviderConfiguration(provider: .claude, metrics: [.weekly])
+        XCTAssertEqual(
+            store.menuBarProviderReadings(for: [configuration], workSchedule: .standard)
+                .first?.readings.first?.isAtRisk,
+            false
+        )
+    }
+
     func testAuthenticationFailureClearsLastGoodAndHidesUnavailableMetric() async {
         let snapshot = ProviderSnapshot(
             provider: .codex,

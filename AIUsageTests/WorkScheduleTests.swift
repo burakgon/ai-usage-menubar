@@ -58,6 +58,25 @@ final class WorkScheduleTests: XCTestCase {
         )
     }
 
+    func testSummaryNamesARunOfDaysOrListsThem() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.firstWeekday = 2
+        XCTAssertEqual(schedule.summary(calendar: calendar), "Mon–Fri · 09–18")
+        XCTAssertEqual(
+            WorkSchedule(weekdays: [2, 4, 6], startHour: 8, endHour: 17).summary(calendar: calendar),
+            "Mon, Wed, Fri · 08–17"
+        )
+        XCTAssertEqual(
+            WorkSchedule(weekdays: [7, 1, 2], startHour: 10, endHour: 24).summary(calendar: calendar),
+            "Mon, Sat, Sun · 10–24"
+        )
+        XCTAssertEqual(
+            WorkSchedule(weekdays: [], startHour: 9, endHour: 18).summary(calendar: calendar),
+            "No days · 09–18"
+        )
+    }
+
     // MARK: - Projection
 
     private func weekly(used: Double) -> QuotaWindow {

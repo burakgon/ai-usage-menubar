@@ -50,6 +50,28 @@ struct WorkSchedule: Codable, Equatable, Sendable {
         return nil
     }
 
+    /// `Mon–Fri · 09–18`, or the days listed when they are not a run.
+    func summary(calendar: Calendar = .current) -> String {
+        let week = Self.orderedWeekdays(calendar: calendar)
+        let days = week.filter(weekdays.contains)
+        let names = calendar.shortStandaloneWeekdaySymbols
+        let dayText: String
+        if let first = days.first, let start = week.firstIndex(of: first),
+           days.count > 2, Array(week[start..<start + days.count]) == days {
+            dayText = "\(names[first - 1])–\(names[days[days.count - 1] - 1])"
+        } else if days.isEmpty {
+            dayText = "No days"
+        } else {
+            dayText = days.map { names[$0 - 1] }.joined(separator: ", ")
+        }
+        return "\(dayText) · \(String(format: "%02d–%02d", startHour, endHour))"
+    }
+
+    /// `Calendar` weekday numbers in the order the week starts.
+    static func orderedWeekdays(calendar: Calendar = .current) -> [Int] {
+        (0..<7).map { (calendar.firstWeekday - 1 + $0) % 7 + 1 }
+    }
+
     private func workingHours(on day: Date, calendar: Calendar) -> (start: Date, end: Date)? {
         guard weekdays.contains(calendar.component(.weekday, from: day)),
               startHour < endHour,

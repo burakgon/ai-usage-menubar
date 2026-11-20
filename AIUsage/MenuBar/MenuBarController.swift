@@ -481,7 +481,8 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             (
                 groups: store.menuBarProviderReadings(
                     for: preferences.menuBarProviderConfigurations,
-                    displayMode: preferences.usageDisplayMode
+                    displayMode: preferences.usageDisplayMode,
+                    workSchedule: preferences.activeWorkSchedule
                 ),
                 trackedProviders: preferences.trackedProviderIDs,
                 refreshInterval: preferences.refreshInterval
@@ -558,6 +559,7 @@ private struct DashboardRootView: View {
             openSettings: openSettings,
             providerOrder: preferences.providerOrder
         )
+        .environment(\.workSchedule, preferences.activeWorkSchedule)
     }
 }
 
