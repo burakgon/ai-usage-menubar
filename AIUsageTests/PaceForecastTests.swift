@@ -67,4 +67,16 @@ final class PaceForecastTests: XCTestCase {
         XCTAssertEqual(first, t0.addingTimeInterval(2.5 * hour))
         XCTAssertEqual(first, second)
     }
+
+    func testMonthlyStartIsOneCalendarMonthBeforeReset() {
+        XCTAssertEqual(
+            ProviderParsing.monthStart(endingAt: ProviderParsing.date("2027-03-01T00:00:00Z")),
+            ProviderParsing.date("2027-02-01T00:00:00Z")
+        )
+        XCTAssertEqual(
+            ProviderParsing.monthStart(endingAt: ProviderParsing.date("2027-03-31T00:00:00Z")),
+            ProviderParsing.date("2027-02-28T00:00:00Z")
+        )
+        XCTAssertNil(ProviderParsing.monthStart(endingAt: nil))
+    }
 }

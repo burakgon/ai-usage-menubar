@@ -337,6 +337,31 @@ final class MapperTests: XCTestCase {
             snapshot.windows.first?.resetsAt,
             Date(timeIntervalSince1970: 1_800_100_000)
         )
+        let start = ProviderParsing.monthStart(
+            endingAt: Date(timeIntervalSince1970: 1_800_100_000)
+        )
+        XCTAssertNotNil(start)
+        XCTAssertEqual(snapshot.windows.map(\.startsAt), [start, start, start])
+    }
+
+    func testCursorUsesBillingCycleStartWhenPresent() throws {
+        let snapshot = try CursorUsageMapper.map(
+            usageResponse: httpResponse(json: """
+            {
+              "enabled": true,
+              "billingCycleStart": 1797500000000,
+              "billingCycleEnd": 1800100000000,
+              "planUsage": {"autoPercentUsed": 40}
+            }
+            """),
+            planResponse: nil,
+            now: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        XCTAssertEqual(
+            snapshot.windows.first?.startsAt,
+            Date(timeIntervalSince1970: 1_797_500_000)
+        )
     }
 
     func testCopilotConvertsRemainingQuotaToUsed() throws {
@@ -365,6 +390,8 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.planName, "Individual Pro")
         XCTAssertEqual(snapshot.windows.map(\.kind), [.credits, .chat])
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 20])
+        let start = ProviderParsing.date("2026-12-15T00:00:00Z")
+        XCTAssertEqual(snapshot.windows.map(\.startsAt), [start, start])
     }
 
     func testDevinMapsDailyAndWeeklyRemainingQuota() throws {

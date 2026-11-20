@@ -107,7 +107,8 @@ enum CopilotUsageMapper {
         return QuotaWindow(
             kind: kind,
             usedPercent: usedPercent,
-            resetsAt: resetsAt
+            resetsAt: resetsAt,
+            startsAt: ProviderParsing.monthStart(endingAt: resetsAt)
         )
     }
 
@@ -126,7 +127,8 @@ enum CopilotUsageMapper {
             usedPercent: clampPercent(
                 ((total - remaining) / total) * 100
             ),
-            resetsAt: resetsAt
+            resetsAt: resetsAt,
+            startsAt: ProviderParsing.monthStart(endingAt: resetsAt)
         )
     }
 
