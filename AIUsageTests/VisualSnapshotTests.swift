@@ -202,6 +202,38 @@ final class VisualSnapshotTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 130)
     }
 
+    func testAtRiskTileStaysCompact() {
+        let now = Date()
+        let snapshot = ProviderSnapshot(
+            provider: .claude,
+            planName: "Pro",
+            windows: [
+                QuotaWindow(
+                    kind: .session,
+                    usedPercent: 80,
+                    resetsAt: now.addingTimeInterval(4 * 3_600 - 600),
+                    startsAt: now.addingTimeInterval(-3_600 - 600)
+                ),
+                QuotaWindow(
+                    kind: .weekly,
+                    usedPercent: 90,
+                    resetsAt: now.addingTimeInterval(5 * 86_400 + 7_200),
+                    startsAt: now.addingTimeInterval(-2 * 86_400 + 7_200)
+                ),
+                QuotaWindow(kind: .sonnet, usedPercent: 76, resetsAt: nil)
+            ],
+            fetchedAt: now
+        )
+        XCTAssertNotNil(snapshot.windows[0].projectedExhaustion(measuredAt: now))
+        XCTAssertNotNil(snapshot.windows[1].projectedExhaustion(measuredAt: now))
+        let state = ProviderState(provider: .claude, snapshot: snapshot)
+        let size = measuredSize(of: ProviderSectionView(state: state), width: panelWidth - 20)
+
+        XCTAssertEqual(size.width, panelWidth - 20, accuracy: 0.5)
+        XCTAssertLessThan(size.height, 200)
+        XCTAssertGreaterThan(size.height, 130)
+    }
+
     func testBillingUsagePresentationKeepsProviderSemanticsDistinct() {
         let locale = Locale(identifier: "en_US")
         let bounded = BillingUsage.boundedSpend(

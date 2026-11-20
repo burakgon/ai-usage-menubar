@@ -28,12 +28,15 @@ enum CursorUsageMapper {
         }
 
         let reset = ProviderParsing.date(body["billingCycleEnd"])
+        let start = ProviderParsing.date(body["billingCycleStart"]) ??
+            ProviderParsing.monthStart(endingAt: reset)
         var windows: [QuotaWindow] = []
         if let percent = totalPercent(planUsage) {
             windows.append(QuotaWindow(
                 kind: .totalUsage,
                 usedPercent: clamp(percent),
-                resetsAt: reset
+                resetsAt: reset,
+                startsAt: start
             ))
         }
         if let percent = ProviderParsing.double(
@@ -42,7 +45,8 @@ enum CursorUsageMapper {
             windows.append(QuotaWindow(
                 kind: .autoUsage,
                 usedPercent: clamp(percent),
-                resetsAt: reset
+                resetsAt: reset,
+                startsAt: start
             ))
         }
         if let percent = ProviderParsing.double(
@@ -51,7 +55,8 @@ enum CursorUsageMapper {
             windows.append(QuotaWindow(
                 kind: .apiUsage,
                 usedPercent: clamp(percent),
-                resetsAt: reset
+                resetsAt: reset,
+                startsAt: start
             ))
         }
         guard !windows.isEmpty else {

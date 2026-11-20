@@ -359,9 +359,47 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
     let kind: QuotaKind
     let usedPercent: Double
     let resetsAt: Date?
+    /// When the window began, from the provider or its known length.
+    var startsAt: Date? = nil
+
+    /// The share of a window that has to pass before its pace is trusted.
+    static let minimumElapsedFraction = 0.1
 
     var id: QuotaKind { kind }
     var renderedFraction: Double { min(max(usedPercent / 100, 0), 1) }
+
+    /// When the window fills at its average pace since it started, measured
+    /// when `usedPercent` was read; `nil` unless that comes before the reset.
+    /// With a `schedule`, a window longer than a day measures its pace in
+    /// working time, so nights and days off neither slow the pace nor count
+    /// as time left to use.
+    func projectedExhaustion(
+        measuredAt: Date,
+        schedule: WorkSchedule? = nil,
+        calendar: Calendar = .current
+    ) -> Date? {
+        guard let start = startsAt, let reset = resetsAt,
+              usedPercent > 0, usedPercent < 100,
+              start < measuredAt, measuredAt < reset else { return nil }
+
+        if let schedule, reset.timeIntervalSince(start) > 86_400 {
+            let elapsed = schedule.workingTime(from: start, to: measuredAt, calendar: calendar)
+            let total = schedule.workingTime(from: start, to: reset, calendar: calendar)
+            guard elapsed > 0, elapsed >= total * Self.minimumElapsedFraction else { return nil }
+            let needed = (100 - usedPercent) * elapsed / usedPercent
+            guard needed < schedule.workingTime(from: measuredAt, to: reset, calendar: calendar)
+            else { return nil }
+            return schedule.date(byAddingWorkingTime: needed, to: measuredAt, calendar: calendar)
+        }
+
+        let elapsed = measuredAt.timeIntervalSince(start)
+        guard elapsed >= reset.timeIntervalSince(start) * Self.minimumElapsedFraction
+        else { return nil }
+        let exhaustion = measuredAt.addingTimeInterval(
+            (100 - usedPercent) * elapsed / usedPercent
+        )
+        return exhaustion < reset ? exhaustion : nil
+    }
 }
 
 enum BillingUsage: Equatable, Sendable {
@@ -480,6 +518,24 @@ struct ProviderSnapshot: Equatable, Sendable {
     func window(for metric: MenuBarMetricID) -> QuotaWindow? {
         guard let quotaKind = metric.quotaKind else { return nil }
         return windows.first { $0.kind == quotaKind }
+    }
+
+    /// The metric's window runs out before its reset at its current pace,
+    /// and that reset is still ahead of `now`.
+    func isAtRisk(_ metric: MenuBarMetricID, now: Date, schedule: WorkSchedule? = nil) -> Bool {
+        exhaustion(for: metric, now: now, schedule: schedule) != nil
+    }
+
+    /// When the metric's window fills at its current pace, while its reset
+    /// is still ahead of `now` and comes after that.
+    func exhaustion(
+        for metric: MenuBarMetricID,
+        now: Date,
+        schedule: WorkSchedule? = nil
+    ) -> Date? {
+        guard let window = window(for: metric),
+              let reset = window.resetsAt, now < reset else { return nil }
+        return window.projectedExhaustion(measuredAt: fetchedAt, schedule: schedule)
     }
 
     var availableMenuBarItems: [MenuBarItemID] {

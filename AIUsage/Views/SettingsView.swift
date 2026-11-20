@@ -161,7 +161,7 @@ struct SettingsView: View {
             Grid(
                 alignment: .leading,
                 horizontalSpacing: 18,
-                verticalSpacing: 11
+                verticalSpacing: 6
             ) {
                 GridRow {
                     Text("Numbers")
@@ -190,6 +190,13 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .frame(width: 180, alignment: .leading)
+                }
+
+                GridRow {
+                    Text("Forecast")
+                        .foregroundStyle(.secondary)
+
+                    WorkScheduleSettings(preferences: preferences)
                 }
 
                 GridRow(alignment: .top) {
@@ -260,6 +267,120 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
+    }
+}
+
+/// Whether weekly and monthly forecasts count only working hours, and which.
+/// The days and hours sit in a popover so the row keeps one height: the
+/// settings panel has to fit below the menu bar of a 900-point display.
+private struct WorkScheduleSettings: View {
+    @Bindable var preferences: AppPreferences
+    @State private var isEditing = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Toggle("Working hours only", isOn: $preferences.countsWorkingHoursOnly)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .help("Weekly and monthly limits skip nights and days off.")
+
+            if preferences.countsWorkingHoursOnly {
+                Button(preferences.workSchedule.summary()) {
+                    isEditing = true
+                }
+                .controlSize(.small)
+                .accessibilityLabel("Working hours")
+                .accessibilityValue(preferences.workSchedule.summary())
+                .popover(isPresented: $isEditing, arrowEdge: .bottom) {
+                    editor
+                        .padding(12)
+                }
+            }
+        }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 3) {
+                ForEach(Self.orderedWeekdays, id: \.self) { weekday in
+                    Toggle(Self.symbol(for: weekday), isOn: weekdayBinding(weekday))
+                        .toggleStyle(.button)
+                        .controlSize(.small)
+                        .accessibilityLabel(Self.name(for: weekday))
+                }
+            }
+
+            HStack(spacing: 6) {
+                Picker("From", selection: startHourBinding) {
+                    ForEach(0..<24, id: \.self) { Text(Self.hourText($0)).tag($0) }
+                }
+                Text("to")
+                    .foregroundStyle(.secondary)
+                Picker("To", selection: endHourBinding) {
+                    ForEach(1...24, id: \.self) { Text(Self.hourText($0)).tag($0) }
+                }
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .fixedSize()
+
+            Text("Weekly and monthly limits skip nights and days off.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func weekdayBinding(_ weekday: Int) -> Binding<Bool> {
+        Binding(
+            get: { preferences.workSchedule.weekdays.contains(weekday) },
+            set: { isOn in
+                if isOn {
+                    preferences.workSchedule.weekdays.insert(weekday)
+                } else {
+                    preferences.workSchedule.weekdays.remove(weekday)
+                }
+            }
+        )
+    }
+
+    /// Moving one end past the other moves the other along, so the range
+    /// always holds at least an hour.
+    private var startHourBinding: Binding<Int> {
+        Binding(
+            get: { preferences.workSchedule.startHour },
+            set: { hour in
+                preferences.workSchedule.startHour = hour
+                if preferences.workSchedule.endHour <= hour {
+                    preferences.workSchedule.endHour = hour + 1
+                }
+            }
+        )
+    }
+
+    private var endHourBinding: Binding<Int> {
+        Binding(
+            get: { preferences.workSchedule.endHour },
+            set: { hour in
+                preferences.workSchedule.endHour = hour
+                if preferences.workSchedule.startHour >= hour {
+                    preferences.workSchedule.startHour = hour - 1
+                }
+            }
+        )
+    }
+
+    private static var orderedWeekdays: [Int] { WorkSchedule.orderedWeekdays() }
+
+    private static func symbol(for weekday: Int) -> String {
+        Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1]
+    }
+
+    private static func name(for weekday: Int) -> String {
+        Calendar.current.standaloneWeekdaySymbols[weekday - 1]
+    }
+
+    private static func hourText(_ hour: Int) -> String {
+        String(format: "%02d:00", hour)
     }
 }
 

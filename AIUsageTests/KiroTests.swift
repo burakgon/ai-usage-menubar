@@ -42,6 +42,16 @@ final class KiroTests: XCTestCase {
                 ProviderParsing.date("2027-01-01T00:00:00.000Z")
             ]
         )
+        XCTAssertEqual(
+            snapshot.windows.map(\.startsAt),
+            [
+                ProviderParsing.monthStart(
+                    endingAt: Date(timeIntervalSince1970: 1_799_020_800)
+                ),
+                nil
+            ]
+        )
+        XCTAssertNotNil(snapshot.windows[0].startsAt)
     }
 
     func testMapperIgnoresAnEndedFreeTrial() throws {

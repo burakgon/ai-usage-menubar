@@ -65,14 +65,15 @@ enum ZAIUsageMapper {
         let reset = ProviderParsing.date(limit["nextResetTime"])
         switch type {
         case "CREDIT_LIMIT", "TOKENS_LIMIT":
-            guard let kind = tokenWindowKind(limit),
+            guard let (kind, length) = tokenWindow(limit),
                   let percent = ProviderParsing.double(limit["percentage"]) else {
                 return nil
             }
             return QuotaWindow(
                 kind: kind,
                 usedPercent: min(max(percent, 0), 100),
-                resetsAt: reset
+                resetsAt: reset,
+                startsAt: ProviderParsing.windowStart(endingAt: reset, length: length)
             )
         case "TIME_LIMIT":
             guard let used = ProviderParsing.double(limit["currentValue"]),
@@ -92,7 +93,9 @@ enum ZAIUsageMapper {
 
     /// `unit` and `number` describe the window: unit 3 is hours, 4 days,
     /// 6 weeks, and 5 months. A five-hour window is the session.
-    private static func tokenWindowKind(_ limit: [String: Any]) -> QuotaKind? {
+    private static func tokenWindow(
+        _ limit: [String: Any]
+    ) -> (kind: QuotaKind, length: TimeInterval)? {
         guard let unit = ProviderParsing.double(limit["unit"]),
               let number = ProviderParsing.double(limit["number"]),
               number > 0 else {
@@ -108,9 +111,9 @@ enum ZAIUsageMapper {
         }
         let seconds = unitSeconds * number
         switch seconds {
-        case ..<daySeconds: return .session
-        case ..<(7 * daySeconds): return .daily
-        case ..<(28 * daySeconds): return .weekly
+        case ..<daySeconds: return (.session, seconds)
+        case ..<(7 * daySeconds): return (.daily, seconds)
+        case ..<(28 * daySeconds): return (.weekly, seconds)
         default: return nil
         }
     }

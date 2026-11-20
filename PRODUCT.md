@@ -59,6 +59,13 @@ database, or background transcript scanning.
 - Codex surfaces session, weekly, Spark, and Spark Weekly quota windows.
 - Claude Code and Codex also surface banked usage-limit resets and their
   expirations, read-only.
+- A quota window with a known start shows when it will fill at its average
+  pace since it started, only when that comes before its reset, and is marked
+  with an hourglass in the panel and the menu bar. The projection is computed
+  from the current reading alone; no usage history is kept. An optional
+  working-hours setting (off by default) measures windows longer than a day
+  in working time, so nights and days off neither slow the pace nor count as
+  time left.
 - Automatic menu-bar selection compares the selected primary period across
   available providers. A pinned provider may fall back to its other primary
   period when the selected one is absent, but never to a Spark-specific quota.

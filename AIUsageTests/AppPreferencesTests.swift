@@ -37,6 +37,24 @@ final class AppPreferencesTests: XCTestCase {
     }
 
     @MainActor
+    func testWorkingHoursAreOffByDefaultAndPersist() {
+        let preferences = AppPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.countsWorkingHoursOnly)
+        XCTAssertEqual(preferences.workSchedule, .standard)
+        XCTAssertNil(preferences.activeWorkSchedule)
+
+        preferences.countsWorkingHoursOnly = true
+        preferences.workSchedule = WorkSchedule(weekdays: [2, 3, 4, 5], startHour: 8, endHour: 17)
+
+        let reloaded = AppPreferences(defaults: defaults)
+        XCTAssertTrue(reloaded.countsWorkingHoursOnly)
+        XCTAssertEqual(
+            reloaded.activeWorkSchedule,
+            WorkSchedule(weekdays: [2, 3, 4, 5], startHour: 8, endHour: 17)
+        )
+    }
+
+    @MainActor
     func testFreshConfigurationPrefersWeeklyPerProvider() {
         let preferences = AppPreferences(defaults: defaults)
 

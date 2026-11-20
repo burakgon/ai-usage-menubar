@@ -82,6 +82,20 @@ enum ProviderParsing {
         return Data(bytes)
     }
 
+    /// When a window of a known length began, counted back from its reset.
+    static func windowStart(endingAt reset: Date?, length: TimeInterval) -> Date? {
+        reset?.addingTimeInterval(-length)
+    }
+
+    /// The start of a monthly billing cycle: one calendar month, in UTC,
+    /// before its reset.
+    static func monthStart(endingAt reset: Date?) -> Date? {
+        guard let reset else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar.date(byAdding: .month, value: -1, to: reset)
+    }
+
     static func date(_ value: Any?) -> Date? {
         if let number = double(value) {
             let seconds = number > 10_000_000_000 ? number / 1_000 : number

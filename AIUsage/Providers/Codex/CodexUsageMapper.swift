@@ -209,10 +209,13 @@ enum CodexUsageMapper {
               let used = candidate.usedPercent else {
             return nil
         }
+        let reset = resetDate(candidate.object, now: now)
         return QuotaWindow(
             kind: outputKind,
             usedPercent: used,
-            resetsAt: resetDate(candidate.object, now: now)
+            resetsAt: reset,
+            startsAt: ProviderParsing.double(candidate.object["limit_window_seconds"])
+                .flatMap { ProviderParsing.windowStart(endingAt: reset, length: $0) }
         )
     }
 

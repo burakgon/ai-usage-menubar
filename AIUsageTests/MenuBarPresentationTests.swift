@@ -20,6 +20,118 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertTrue(presentation.showsStaleIndicator)
     }
 
+    func testAtRiskPercentageAddsRiskToAccessibility() {
+        let atRisk = MenuBarPresentation(reading: MenuBarReading(
+            provider: .claude,
+            metric: .session,
+            value: .percentage(40),
+            displayMode: .used,
+            isStale: false,
+            isAtRisk: true
+        ))
+        XCTAssertTrue(atRisk.showsRiskIndicator)
+        XCTAssertEqual(
+            atRisk.accessibilityLabel,
+            "Claude Code Session 40 percent used, runs out before reset at this pace"
+        )
+
+        let staleAndAtRisk = MenuBarPresentation(reading: MenuBarReading(
+            provider: .claude,
+            metric: .session,
+            value: .percentage(40),
+            displayMode: .used,
+            isStale: true,
+            isAtRisk: true
+        ))
+        XCTAssertEqual(
+            staleAndAtRisk.accessibilityLabel,
+            "Claude Code Session 40 percent used, stale, runs out before reset at this pace"
+        )
+
+        let group = MenuBarProviderReadings(
+            provider: .claude,
+            selectedMetrics: [.session],
+            readings: [MenuBarReading(
+                provider: .claude,
+                metric: .session,
+                value: .percentage(40),
+                displayMode: .used,
+                isStale: false,
+                isAtRisk: true
+            )]
+        )
+        XCTAssertEqual(
+            MenuBarProviderPresentation(group: group).metrics.map(\.showsRiskIndicator),
+            [true]
+        )
+    }
+
+    func testTooltipListsEachLimitWithItsTimesAndStatus() {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000) // Fri 15 Jan 2027 08:00 UTC
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let groups = [
+            MenuBarProviderReadings(
+                provider: .claude,
+                selectedMetrics: [.session, .weekly, .resets],
+                readings: [
+                    MenuBarReading(
+                        provider: .claude, metric: .session, value: .percentage(66),
+                        displayMode: .used, isStale: false, isAtRisk: true,
+                        resetsAt: t0.addingTimeInterval(3 * 3_600),
+                        exhaustsAt: t0.addingTimeInterval(80 * 60)
+                    ),
+                    MenuBarReading(
+                        provider: .claude, metric: .weekly, value: .percentage(37),
+                        displayMode: .used, isStale: false,
+                        resetsAt: t0.addingTimeInterval(4 * 86_400)
+                    ),
+                    MenuBarReading(
+                        provider: .claude, metric: .resets, value: .resets(available: 3),
+                        displayMode: .used, isStale: false
+                    )
+                ]
+            ),
+            MenuBarProviderReadings(
+                provider: .codex,
+                selectedMetrics: [.weekly],
+                readings: [MenuBarReading(
+                    provider: .codex, metric: .weekly, value: .percentage(55),
+                    displayMode: .remaining, isStale: true,
+                    resetsAt: t0.addingTimeInterval(19 * 86_400)
+                )]
+            ),
+            MenuBarProviderReadings(provider: .cursor, selectedMetrics: [.totalUsage], readings: [])
+        ]
+
+        let text = MenuBarTooltip.text(
+            for: groups,
+            now: t0,
+            calendar: calendar,
+            locale: Locale(identifier: "en_GB")
+        )
+
+        XCTAssertEqual(text, """
+        Claude Code
+        ⏳ Session — 66% used
+              Full by 09:20 at this pace · Resets 11:00
+        🟢 Weekly — 37% used
+              Resets Tue 08:00
+        🔄 Resets — 3 available
+
+        Codex
+        ⚠️ Weekly — 55% left
+              Not updated · Resets 3 Feb
+
+        Cursor
+        No usage data
+        """)
+    }
+
+    func testTooltipWithoutProvidersNamesTheApp() {
+        XCTAssertEqual(MenuBarTooltip.text(for: [], now: Date()), "AI Usage")
+    }
+
     func testCreditsStayCompactAndExplainTheBalanceAccessibly() {
         let presentation = MenuBarPresentation(reading: MenuBarReading(
             provider: .codex,
@@ -265,6 +377,30 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertTrue(image.isTemplate)
         XCTAssertGreaterThan(image.size.width, 55)
         XCTAssertLessThan(image.size.width, 130)
+    }
+
+    @MainActor
+    func testStatusImageDrawsTheRiskMarkButStaleWins() {
+        func width(stale: Bool, atRisk: Bool) -> CGFloat {
+            MenuBarStatusImageRenderer.image(
+                for: [MenuBarProviderReadings(
+                    provider: .claude,
+                    selectedMetrics: [.session],
+                    readings: [MenuBarReading(
+                        provider: .claude,
+                        metric: .session,
+                        value: .percentage(40),
+                        displayMode: .used,
+                        isStale: stale,
+                        isAtRisk: atRisk
+                    )]
+                )],
+                font: NSFont.menuBarFont(ofSize: 0)
+            ).size.width
+        }
+
+        XCTAssertGreaterThan(width(stale: false, atRisk: true), width(stale: false, atRisk: false))
+        XCTAssertEqual(width(stale: true, atRisk: true), width(stale: true, atRisk: false))
     }
 
     @MainActor

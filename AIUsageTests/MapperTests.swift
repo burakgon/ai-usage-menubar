@@ -47,6 +47,10 @@ final class MapperTests: XCTestCase {
             snapshot.windows[2].resetsAt,
             Date(timeIntervalSince1970: 1_800_200_000)
         )
+        let lengths: [TimeInterval] = [18_000, 604_800, 604_800, 604_800]
+        for (window, length) in zip(snapshot.windows, lengths) {
+            XCTAssertEqual(window.startsAt, window.resetsAt?.addingTimeInterval(-length))
+        }
     }
 
     func testCodexClassifiesWeeklyInPrimaryAndMapsSpark() throws {
@@ -91,6 +95,14 @@ final class MapperTests: XCTestCase {
             snapshot.windows[1].resetsAt,
             now.addingTimeInterval(600)
         )
+        XCTAssertEqual(
+            snapshot.windows[0].startsAt,
+            Date(timeIntervalSince1970: 1_800_100_000 - 604_800)
+        )
+        XCTAssertEqual(
+            snapshot.windows[1].startsAt,
+            now.addingTimeInterval(600 - 18_000)
+        )
     }
 
     func testCodexFallsBackToPercentHeadersWhenBodyOmitsPercent() throws {
@@ -112,6 +124,7 @@ final class MapperTests: XCTestCase {
         let snapshot = try CodexUsageMapper.map(response: response, now: Date())
 
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [17.25, 68])
+        XCTAssertEqual(snapshot.windows.map(\.startsAt), [nil, nil])
     }
 
     func testClaudeMapsBoundedExtraUsageFromCents() throws {
@@ -324,6 +337,31 @@ final class MapperTests: XCTestCase {
             snapshot.windows.first?.resetsAt,
             Date(timeIntervalSince1970: 1_800_100_000)
         )
+        let start = ProviderParsing.monthStart(
+            endingAt: Date(timeIntervalSince1970: 1_800_100_000)
+        )
+        XCTAssertNotNil(start)
+        XCTAssertEqual(snapshot.windows.map(\.startsAt), [start, start, start])
+    }
+
+    func testCursorUsesBillingCycleStartWhenPresent() throws {
+        let snapshot = try CursorUsageMapper.map(
+            usageResponse: httpResponse(json: """
+            {
+              "enabled": true,
+              "billingCycleStart": 1797500000000,
+              "billingCycleEnd": 1800100000000,
+              "planUsage": {"autoPercentUsed": 40}
+            }
+            """),
+            planResponse: nil,
+            now: Date(timeIntervalSince1970: 1_800_000_000)
+        )
+
+        XCTAssertEqual(
+            snapshot.windows.first?.startsAt,
+            Date(timeIntervalSince1970: 1_797_500_000)
+        )
     }
 
     func testCopilotConvertsRemainingQuotaToUsed() throws {
@@ -352,6 +390,8 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.planName, "Individual Pro")
         XCTAssertEqual(snapshot.windows.map(\.kind), [.credits, .chat])
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [25, 20])
+        let start = ProviderParsing.date("2026-12-15T00:00:00Z")
+        XCTAssertEqual(snapshot.windows.map(\.startsAt), [start, start])
     }
 
     func testDevinMapsDailyAndWeeklyRemainingQuota() throws {
@@ -376,6 +416,13 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.planName, "Teams")
         XCTAssertEqual(snapshot.windows.map(\.kind), [.daily, .weekly])
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [20, 65])
+        XCTAssertEqual(
+            snapshot.windows.map(\.startsAt),
+            [
+                Date(timeIntervalSince1970: 1_800_003_600 - 86_400),
+                Date(timeIntervalSince1970: 1_800_604_800 - 604_800)
+            ]
+        )
     }
 
     func testGrokMapsWeeklyPoolAndPlan() throws {
@@ -401,6 +448,34 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(snapshot.planName, "SuperGrok")
         XCTAssertEqual(snapshot.windows.map(\.kind), [.weekly])
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [48])
+        XCTAssertEqual(
+            snapshot.windows[0].startsAt,
+            snapshot.windows[0].resetsAt?.addingTimeInterval(-604_800)
+        )
+    }
+
+    func testGrokUsesPeriodStartWhenPresent() throws {
+        let snapshot = try GrokUsageMapper.map(
+            response: httpResponse(json: """
+            {
+              "config": {
+                "creditUsagePercent": 48,
+                "currentPeriod": {
+                  "type": "USAGE_PERIOD_TYPE_WEEKLY",
+                  "start": "2027-01-08T06:00:00Z",
+                  "end": "2027-01-15T00:00:00Z"
+                }
+              }
+            }
+            """),
+            planResponse: nil,
+            now: Date()
+        )
+
+        XCTAssertEqual(
+            snapshot.windows[0].startsAt,
+            ProviderParsing.date("2027-01-08T06:00:00Z")
+        )
     }
 
     func testGrokRateLimitCarriesTheRetryDate() {
@@ -428,10 +503,10 @@ final class MapperTests: XCTestCase {
             {
               "groups": [
                 {"buckets": [
-                  {"bucketId":"gemini-5h","remainingFraction":0.9},
-                  {"bucketId":"gemini-weekly","remainingFraction":0.6},
-                  {"bucketId":"3p-5h","remainingFraction":0.25},
-                  {"bucketId":"3p-weekly","remainingFraction":0.1}
+                  {"bucketId":"gemini-5h","remainingFraction":0.9,"resetTime":"2027-01-15T05:00:00Z"},
+                  {"bucketId":"gemini-weekly","remainingFraction":0.6,"resetTime":"2027-01-20T00:00:00Z"},
+                  {"bucketId":"3p-5h","remainingFraction":0.25,"resetTime":"2027-01-15T05:00:00Z"},
+                  {"bucketId":"3p-weekly","remainingFraction":0.1,"resetTime":"2027-01-20T00:00:00Z"}
                 ]}
               ]
             }
@@ -449,6 +524,11 @@ final class MapperTests: XCTestCase {
             snapshot.windows.map(\.usedPercent),
             [10, 40, 75, 90]
         )
+        let lengths: [TimeInterval] = [18_000, 604_800, 18_000, 604_800]
+        for (window, length) in zip(snapshot.windows, lengths) {
+            XCTAssertNotNil(window.resetsAt)
+            XCTAssertEqual(window.startsAt, window.resetsAt?.addingTimeInterval(-length))
+        }
     }
 
     private func claudeOAuth() -> ClaudeOAuth {

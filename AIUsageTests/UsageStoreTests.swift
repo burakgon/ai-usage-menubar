@@ -43,6 +43,69 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
+    func testMenuBarReadingCarriesRiskFromSnapshot() async {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        func store(used: Double) -> UsageStore {
+            let snapshot = ProviderSnapshot(
+                provider: .claude,
+                planName: "Pro",
+                windows: [QuotaWindow(
+                    kind: .session,
+                    usedPercent: used,
+                    resetsAt: t0.addingTimeInterval(5 * 3_600),
+                    startsAt: t0
+                )],
+                fetchedAt: t0.addingTimeInterval(3_600)
+            )
+            return UsageStore(
+                providers: [SequencedProvider(id: .claude, results: [.success(snapshot)])],
+                availabilityChecker: FixedProviderAvailabilityChecker(installed: [.claude])
+            )
+        }
+        let item = MenuBarItemID(provider: .claude, metric: .session)
+
+        let fast = store(used: 40)
+        await fast.refresh()
+        XCTAssertEqual(fast.menuBarReading(for: item)?.isAtRisk, true)
+        XCTAssertEqual(fast.menuBarReading(for: item)?.resetsAt, t0.addingTimeInterval(5 * 3_600))
+        XCTAssertEqual(fast.menuBarReading(for: item)?.exhaustsAt, t0.addingTimeInterval(2.5 * 3_600))
+
+        let slow = store(used: 10)
+        await slow.refresh()
+        XCTAssertEqual(slow.menuBarReading(for: item)?.isAtRisk, false)
+        XCTAssertNil(slow.menuBarReading(for: item)?.exhaustsAt)
+    }
+
+    func testMenuBarReadingsFollowTheWorkSchedule() async {
+        let saturday = ProviderParsing.date("2027-01-23T12:00:00Z")!
+        let snapshot = ProviderSnapshot(
+            provider: .claude,
+            planName: "Pro",
+            windows: [QuotaWindow(
+                kind: .weekly,
+                usedPercent: 85,
+                resetsAt: ProviderParsing.date("2027-01-25T08:00:00Z"),
+                startsAt: ProviderParsing.date("2027-01-18T08:00:00Z")
+            )],
+            fetchedAt: saturday
+        )
+        let store = UsageStore(
+            providers: [SequencedProvider(id: .claude, results: [.success(snapshot)])],
+            availabilityChecker: FixedProviderAvailabilityChecker(installed: [.claude])
+        )
+        let item = MenuBarItemID(provider: .claude, metric: .weekly)
+        await store.refresh()
+
+        XCTAssertEqual(store.menuBarReading(for: item)?.isAtRisk, true)
+        XCTAssertEqual(store.menuBarReading(for: item, workSchedule: .standard)?.isAtRisk, false)
+        let configuration = MenuBarProviderConfiguration(provider: .claude, metrics: [.weekly])
+        XCTAssertEqual(
+            store.menuBarProviderReadings(for: [configuration], workSchedule: .standard)
+                .first?.readings.first?.isAtRisk,
+            false
+        )
+    }
+
     func testAuthenticationFailureClearsLastGoodAndHidesUnavailableMetric() async {
         let snapshot = ProviderSnapshot(
             provider: .codex,
