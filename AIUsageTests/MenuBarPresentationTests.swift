@@ -20,6 +20,52 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertTrue(presentation.showsStaleIndicator)
     }
 
+    func testAtRiskPercentageAddsRiskToAccessibility() {
+        let atRisk = MenuBarPresentation(reading: MenuBarReading(
+            provider: .claude,
+            metric: .session,
+            value: .percentage(40),
+            displayMode: .used,
+            isStale: false,
+            isAtRisk: true
+        ))
+        XCTAssertTrue(atRisk.showsRiskIndicator)
+        XCTAssertEqual(
+            atRisk.accessibilityLabel,
+            "Claude Code Session 40 percent used, runs out before reset at this pace"
+        )
+
+        let staleAndAtRisk = MenuBarPresentation(reading: MenuBarReading(
+            provider: .claude,
+            metric: .session,
+            value: .percentage(40),
+            displayMode: .used,
+            isStale: true,
+            isAtRisk: true
+        ))
+        XCTAssertEqual(
+            staleAndAtRisk.accessibilityLabel,
+            "Claude Code Session 40 percent used, stale, runs out before reset at this pace"
+        )
+
+        let group = MenuBarProviderReadings(
+            provider: .claude,
+            selectedMetrics: [.session],
+            readings: [MenuBarReading(
+                provider: .claude,
+                metric: .session,
+                value: .percentage(40),
+                displayMode: .used,
+                isStale: false,
+                isAtRisk: true
+            )]
+        )
+        XCTAssertEqual(
+            MenuBarProviderPresentation(group: group).metrics.map(\.showsRiskIndicator),
+            [true]
+        )
+    }
+
     func testCreditsStayCompactAndExplainTheBalanceAccessibly() {
         let presentation = MenuBarPresentation(reading: MenuBarReading(
             provider: .codex,
@@ -265,6 +311,30 @@ final class MenuBarPresentationTests: XCTestCase {
         XCTAssertTrue(image.isTemplate)
         XCTAssertGreaterThan(image.size.width, 55)
         XCTAssertLessThan(image.size.width, 130)
+    }
+
+    @MainActor
+    func testStatusImageDrawsTheRiskMarkButStaleWins() {
+        func width(stale: Bool, atRisk: Bool) -> CGFloat {
+            MenuBarStatusImageRenderer.image(
+                for: [MenuBarProviderReadings(
+                    provider: .claude,
+                    selectedMetrics: [.session],
+                    readings: [MenuBarReading(
+                        provider: .claude,
+                        metric: .session,
+                        value: .percentage(40),
+                        displayMode: .used,
+                        isStale: stale,
+                        isAtRisk: atRisk
+                    )]
+                )],
+                font: NSFont.menuBarFont(ofSize: 0)
+            ).size.width
+        }
+
+        XCTAssertGreaterThan(width(stale: false, atRisk: true), width(stale: false, atRisk: false))
+        XCTAssertEqual(width(stale: true, atRisk: true), width(stale: true, atRisk: false))
     }
 
     @MainActor

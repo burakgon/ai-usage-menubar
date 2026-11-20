@@ -454,7 +454,7 @@ private struct QuotaTile: View {
                 if let text = timing.text, let compactText = timing.compactText {
                     HStack(spacing: 5) {
                         if timing.isAtRisk {
-                            Image(systemName: "exclamationmark.triangle.fill")
+                            Image(systemName: "hourglass")
                                 .foregroundStyle(UsagePalette.warning)
                         } else {
                             Image(systemName: "clock")

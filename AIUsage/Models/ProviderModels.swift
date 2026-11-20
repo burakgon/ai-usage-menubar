@@ -502,6 +502,11 @@ struct ProviderSnapshot: Equatable, Sendable {
         return windows.first { $0.kind == quotaKind }
     }
 
+    /// The metric's window runs out before its reset at its current pace.
+    func isAtRisk(_ metric: MenuBarMetricID) -> Bool {
+        window(for: metric)?.projectedExhaustion(measuredAt: fetchedAt) != nil
+    }
+
     var availableMenuBarItems: [MenuBarItemID] {
         var items = windows.map {
             MenuBarItemID(provider: provider, metric: $0.kind.menuBarMetric)
