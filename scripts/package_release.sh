@@ -66,11 +66,18 @@ if [[ "$configured_version" != "$version" ]]; then
     exit 1
 fi
 
+# Every public build since 0.3.0 is signed by this Developer ID team. macOS and
+# Sparkle compare an update's team with the installed app's, so a build signed
+# by any other certificate must not be packaged as a release, even when that
+# certificate is the only Developer ID in the Keychain.
+release_team_id="${AI_USAGE_RELEASE_TEAM_ID:-QCB78CL77T}"
+
 codesign_identity="${AI_USAGE_CODESIGN_IDENTITY:-}"
 if [[ -z "$codesign_identity" ]]; then
     codesign_identity="$(
         security find-identity -v -p codesigning 2>/dev/null |
-            awk '/Developer ID Application:/ { print $2; exit }'
+            awk -v team="($release_team_id)" \
+                '/Developer ID Application:/ && index($0, team) { print $2; exit }'
     )"
 fi
 
@@ -85,8 +92,8 @@ if [[ -n "$codesign_identity" ]]; then
 else
     printf 'Building a universal ad-hoc signed app…\n'
     printf \
-        'Warning: no Developer ID Application identity was found; this build cannot be notarized.\n' \
-        >&2
+        'Warning: no Developer ID Application identity for team %s was found; this build cannot be notarized.\n' \
+        "$release_team_id" >&2
     build_settings+=(
         "CODE_SIGN_STYLE=Automatic"
         "ENABLE_HARDENED_RUNTIME=NO"
@@ -144,6 +151,20 @@ fi
 /usr/bin/lipo -verify_arch arm64 "$application_binary"
 /usr/bin/lipo -verify_arch x86_64 "$application_binary"
 /usr/bin/codesign --verify --deep --strict --verbose=2 "$built_application"
+
+if [[ -n "$codesign_identity" ]]; then
+    built_team_id="$(
+        /usr/bin/codesign -dv "$built_application" 2>&1 |
+            awk -F '=' '/^TeamIdentifier=/ { print $2 }'
+    )"
+    if [[ "$built_team_id" != "$release_team_id" ]]; then
+        printf \
+            'The app is signed by team %s, but releases are signed by team %s.\n' \
+            "${built_team_id:-unknown}" \
+            "$release_team_id" >&2
+        exit 1
+    fi
+fi
 
 embedded_version="$(
     /usr/libexec/PlistBuddy \

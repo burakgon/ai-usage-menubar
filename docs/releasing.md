@@ -8,7 +8,8 @@ updates.
 - Xcode 27 or newer
 - GitHub CLI authenticated for `burakgon/ai-usage-menubar`
 - The `ai-usage-menubar` Sparkle EdDSA key in the login Keychain
-- A `Developer ID Application` certificate for a notarized public build
+- The `Developer ID Application` certificate of team `QCB78CL77T` for a
+  notarized public build
 - The `macos-notary` notarytool profile in Keychain
 
 The Sparkle private key is never stored in this repository. The public key is
@@ -46,9 +47,15 @@ The script:
 - signs the update with the private EdDSA key in Keychain;
 - updates the signed `appcast.xml`.
 
+The script signs only with a Developer ID certificate of team `QCB78CL77T`,
+which has signed every public build since 0.3.0, and stops when the built app
+carries another team. macOS and Sparkle compare an update's team with the
+installed app's. A fork that signs its own builds sets
+`AI_USAGE_RELEASE_TEAM_ID`.
+
 Developer ID builds retain Hardened Runtime. When no Developer ID certificate
-is available, the script disables Hardened Runtime for the ad-hoc build so
-macOS can load Sparkle's separately signed framework.
+of that team is available, the script disables Hardened Runtime for the ad-hoc
+build so macOS can load Sparkle's separately signed framework.
 
 For public releases, sign Sparkle's nested helpers, require an accepted Apple
 notarization result, and staple the ticket in the same pass:
