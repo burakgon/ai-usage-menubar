@@ -43,6 +43,36 @@ final class UsageStoreTests: XCTestCase {
         )
     }
 
+    func testMenuBarReadingCarriesRiskFromSnapshot() async {
+        let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+        func store(used: Double) -> UsageStore {
+            let snapshot = ProviderSnapshot(
+                provider: .claude,
+                planName: "Pro",
+                windows: [QuotaWindow(
+                    kind: .session,
+                    usedPercent: used,
+                    resetsAt: t0.addingTimeInterval(5 * 3_600),
+                    startsAt: t0
+                )],
+                fetchedAt: t0.addingTimeInterval(3_600)
+            )
+            return UsageStore(
+                providers: [SequencedProvider(id: .claude, results: [.success(snapshot)])],
+                availabilityChecker: FixedProviderAvailabilityChecker(installed: [.claude])
+            )
+        }
+        let item = MenuBarItemID(provider: .claude, metric: .session)
+
+        let fast = store(used: 40)
+        await fast.refresh()
+        XCTAssertEqual(fast.menuBarReading(for: item)?.isAtRisk, true)
+
+        let slow = store(used: 10)
+        await slow.refresh()
+        XCTAssertEqual(slow.menuBarReading(for: item)?.isAtRisk, false)
+    }
+
     func testAuthenticationFailureClearsLastGoodAndHidesUnavailableMetric() async {
         let snapshot = ProviderSnapshot(
             provider: .codex,

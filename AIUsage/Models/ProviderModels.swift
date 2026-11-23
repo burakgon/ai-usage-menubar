@@ -359,9 +359,29 @@ struct QuotaWindow: Identifiable, Equatable, Sendable {
     let kind: QuotaKind
     let usedPercent: Double
     let resetsAt: Date?
+    /// When the window began, from the provider or its known length.
+    var startsAt: Date? = nil
+
+    /// The share of a window that has to pass before its pace is trusted.
+    static let minimumElapsedFraction = 0.1
 
     var id: QuotaKind { kind }
     var renderedFraction: Double { min(max(usedPercent / 100, 0), 1) }
+
+    /// When the window fills at its average pace since it started, measured
+    /// when `usedPercent` was read; `nil` unless that comes before the reset.
+    func projectedExhaustion(measuredAt: Date) -> Date? {
+        guard let start = startsAt, let reset = resetsAt,
+              usedPercent > 0, usedPercent < 100,
+              start < measuredAt, measuredAt < reset else { return nil }
+        let elapsed = measuredAt.timeIntervalSince(start)
+        guard elapsed >= reset.timeIntervalSince(start) * Self.minimumElapsedFraction
+        else { return nil }
+        let exhaustion = measuredAt.addingTimeInterval(
+            (100 - usedPercent) * elapsed / usedPercent
+        )
+        return exhaustion < reset ? exhaustion : nil
+    }
 }
 
 enum BillingUsage: Equatable, Sendable {
@@ -480,6 +500,14 @@ struct ProviderSnapshot: Equatable, Sendable {
     func window(for metric: MenuBarMetricID) -> QuotaWindow? {
         guard let quotaKind = metric.quotaKind else { return nil }
         return windows.first { $0.kind == quotaKind }
+    }
+
+    /// The metric's window runs out before its reset at its current pace,
+    /// and that reset is still ahead of `now`.
+    func isAtRisk(_ metric: MenuBarMetricID, now: Date) -> Bool {
+        guard let window = window(for: metric),
+              let reset = window.resetsAt, now < reset else { return false }
+        return window.projectedExhaustion(measuredAt: fetchedAt) != nil
     }
 
     var availableMenuBarItems: [MenuBarItemID] {

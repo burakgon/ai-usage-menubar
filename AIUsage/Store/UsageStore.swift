@@ -7,19 +7,23 @@ struct MenuBarReading: Equatable, Sendable {
     let value: MenuBarReadingValue
     let displayMode: UsageDisplayMode
     let isStale: Bool
+    /// The window runs out before its reset at its current pace.
+    let isAtRisk: Bool
 
     init(
         provider: ProviderID,
         metric: MenuBarMetricID,
         value: MenuBarReadingValue,
         displayMode: UsageDisplayMode,
-        isStale: Bool
+        isStale: Bool,
+        isAtRisk: Bool = false
     ) {
         self.provider = provider
         self.metric = metric
         self.value = value
         self.displayMode = displayMode
         self.isStale = isStale
+        self.isAtRisk = isAtRisk
     }
 }
 
@@ -224,7 +228,8 @@ final class UsageStore {
         for items: [MenuBarItemID],
         displayMode: UsageDisplayMode = .used
     ) -> [MenuBarReading] {
-        items.compactMap { item in
+        let now = Date()
+        return items.compactMap { item in
             guard trackedProviderIDs.contains(item.provider),
                   let state = states[item.provider],
                   state.isToolInstalled != false,
@@ -240,7 +245,8 @@ final class UsageStore {
                 metric: item.metric,
                 value: value,
                 displayMode: displayMode,
-                isStale: state.isStale
+                isStale: state.isStale,
+                isAtRisk: state.snapshot?.isAtRisk(item.metric, now: now) ?? false
             )
         }
     }

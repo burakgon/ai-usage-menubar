@@ -71,11 +71,16 @@ final class AntigravityTests: XCTestCase {
 
         let byIdentifier = try XCTUnwrap(AntigravityUsageMapper.summary([summary("""
         {"displayName":"Gemini Models","buckets":[
-          {"bucketId":"gemini-argon-wtu-weekly","remainingFraction":0.8}
+          {"bucketId":"gemini-argon-wtu-weekly","remainingFraction":0.8,
+           "resetTime":"2027-01-20T00:00:00Z"}
         ]}
         """)], planName: nil, now: now))
         XCTAssertEqual(byIdentifier.windows.map(\.kind), [.argonWeekly])
         XCTAssertEqual(byIdentifier.windows.map(\.usedPercent), [20])
+        XCTAssertEqual(
+            byIdentifier.windows[0].startsAt,
+            ProviderParsing.date("2027-01-20T00:00:00Z")?.addingTimeInterval(-604_800)
+        )
     }
 
     func testAmbiguousOrDisabledArgonIsNotShown() throws {

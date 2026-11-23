@@ -49,6 +49,7 @@ enum MenuBarStatusImageRenderer {
         let label: TextRun?
         let value: TextRun
         let staleIndicator: TextRun?
+        let riskIndicator: NSImage?
         let width: CGFloat
     }
 
@@ -71,16 +72,23 @@ enum MenuBarStatusImageRenderer {
                 let staleIndicator = metric.showsStaleIndicator
                     ? textRun("⚠︎", font: microFont)
                     : nil
+                // Stale data makes the pace doubtful, so stale wins.
+                let riskIndicator = metric.showsRiskIndicator && staleIndicator == nil
+                    ? riskImage(font: microFont)
+                    : nil
                 return MetricRun(
                     label: label,
                     value: value,
                     staleIndicator: staleIndicator,
+                    riskIndicator: riskIndicator,
                     width:
                         (label?.width ?? 0) +
                         (label == nil ? 0 : labelValueSpacing) +
                         value.width +
                         (staleIndicator == nil ? 0 : staleSpacing) +
-                        (staleIndicator?.width ?? 0)
+                        (staleIndicator?.width ?? 0) +
+                        (riskIndicator == nil ? 0 : staleSpacing) +
+                        ceil(riskIndicator?.size.width ?? 0)
                 )
             }
             let separatorsWidth =
@@ -212,6 +220,23 @@ enum MenuBarStatusImageRenderer {
                         )
                         x += staleIndicator.width
                     }
+
+                    if let riskIndicator = metric.riskIndicator {
+                        x += staleSpacing
+                        riskIndicator.draw(
+                            in: NSRect(
+                                x: x,
+                                y: destination.midY -
+                                    riskIndicator.size.height / 2,
+                                width: riskIndicator.size.width,
+                                height: riskIndicator.size.height
+                            ),
+                            from: .zero,
+                            operation: .sourceOver,
+                            fraction: 1
+                        )
+                        x += ceil(riskIndicator.size.width)
+                    }
                 }
 
                 if index < entries.count - 1 {
@@ -231,6 +256,17 @@ enum MenuBarStatusImageRenderer {
             size: (text as NSString).size(withAttributes: [
                 .font: font
             ])
+        )
+    }
+
+    /// The same hourglass the panel shows on a window that runs out before
+    /// its reset.
+    private static func riskImage(font: NSFont) -> NSImage? {
+        NSImage(
+            systemSymbolName: "hourglass",
+            accessibilityDescription: nil
+        )?.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .semibold)
         )
     }
 

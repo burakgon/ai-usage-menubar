@@ -4,30 +4,32 @@ struct MenuBarPresentation: Equatable, Sendable {
     let valueText: String?
     let accessibilityLabel: String
     let showsStaleIndicator: Bool
+    let showsRiskIndicator: Bool
 
     init(reading: MenuBarReading) {
         let provider = reading.provider.displayName
         let subject = "\(provider) \(reading.metric.title)"
+        let label: String
         switch reading.value {
         case .percentage(let percent):
             valueText = "\(Int(percent.rounded()))%"
             let value =
                 "\(Int(percent.rounded())) percent \(reading.displayMode.valueSuffix)"
-            accessibilityLabel = reading.isStale
+            label = reading.isStale
                 ? "\(subject) \(value), stale"
                 : "\(subject) \(value)"
         case let .money(amount, currencyCode):
             let formatted = Self.currency(amount, code: currencyCode)
             valueText = formatted
             let qualifier = reading.displayMode == .used ? "spent" : "left"
-            accessibilityLabel = reading.isStale
+            label = reading.isStale
                 ? "\(subject) \(formatted) \(qualifier), stale"
                 : "\(subject) \(formatted) \(qualifier)"
         case let .credits(remaining, usdValue):
             let formatted = Self.currency(usdValue, code: "USD")
             valueText = formatted
             let detail = "\(remaining) credits left, worth \(formatted)"
-            accessibilityLabel = reading.isStale
+            label = reading.isStale
                 ? "\(subject) \(detail), stale"
                 : "\(subject) \(detail)"
         case let .resets(available):
@@ -35,10 +37,14 @@ struct MenuBarPresentation: Equatable, Sendable {
             let detail = available == 1
                 ? "1 usage limit reset available"
                 : "\(available) usage limit resets available"
-            accessibilityLabel = reading.isStale
+            label = reading.isStale
                 ? "\(provider) \(detail), stale"
                 : "\(provider) \(detail)"
         }
+        accessibilityLabel = reading.isAtRisk
+            ? "\(label), runs out before reset at this pace"
+            : label
+        showsRiskIndicator = reading.isAtRisk
         showsStaleIndicator = reading.isStale
     }
 
@@ -89,6 +95,7 @@ struct MenuBarMetricPresentation: Equatable, Sendable {
     let label: String?
     let valueText: String
     let showsStaleIndicator: Bool
+    var showsRiskIndicator = false
 }
 
 struct MenuBarProviderPresentation: Equatable, Sendable {
@@ -127,7 +134,8 @@ struct MenuBarProviderPresentation: Equatable, Sendable {
                 label: needsLabel ? reading.metric.compactLabel : nil,
                 valueText: valueText,
                 showsStaleIndicator:
-                    presentation.showsStaleIndicator
+                    presentation.showsStaleIndicator,
+                showsRiskIndicator: presentation.showsRiskIndicator
             )
         }
         sharedSuffix = sharesPercentageSuffix ? "%" : nil
@@ -183,6 +191,13 @@ struct MenuBarProviderLabelView: View {
 
                     if metric.showsStaleIndicator {
                         Text("⚠︎")
+                            .font(.system(
+                                size: microFontSize,
+                                weight: .semibold
+                            ))
+                            .padding(.leading, 1)
+                    } else if metric.showsRiskIndicator {
+                        Image(systemName: "hourglass")
                             .font(.system(
                                 size: microFontSize,
                                 weight: .semibold

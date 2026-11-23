@@ -179,10 +179,15 @@ enum AntigravityUsageMapper {
             return nil
         }
         let clamped = min(max(remaining, 0), 1)
+        let reset = ProviderParsing.date(bucket["resetTime"])
+        let length: TimeInterval = kind == .session || kind == .claudePool
+            ? 5 * 3_600
+            : 7 * 86_400
         return QuotaWindow(
             kind: kind,
             usedPercent: ((1 - clamped) * 100).rounded(),
-            resetsAt: ProviderParsing.date(bucket["resetTime"])
+            resetsAt: reset,
+            startsAt: ProviderParsing.windowStart(endingAt: reset, length: length)
         )
     }
 

@@ -56,11 +56,12 @@ enum KiroUsageMapper {
             limit > 0 else {
             return nil
         }
+        let reset = ProviderParsing.date(item["nextDateReset"]) ?? fallbackReset
         return QuotaWindow(
             kind: .credits,
             usedPercent: percent(usage(of: item), of: limit),
-            resetsAt: ProviderParsing.date(item["nextDateReset"]) ??
-                fallbackReset
+            resetsAt: reset,
+            startsAt: ProviderParsing.monthStart(endingAt: reset)
         )
     }
 
