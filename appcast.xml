@@ -6,6 +6,36 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>AI Usage</title>
         <item>
+            <title>0.5.0</title>
+            <pubDate>Mon, 23 Nov 2026 21:49:58 +0300</pubDate>
+            <link>https://github.com/burakgon/ai-usage-menubar</link>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>0.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.5.0
+
+This release shows when a session will run out early, and fixes Antigravity
+and Cursor.
+
+- Show when a session is on pace to run out before it resets. Its card reads
+  "Out 57m" beside the reset time, and an hourglass marks it there and in the
+  menu bar. The estimate comes from the current reading, so nothing is stored,
+  and weekly and monthly limits don't get one.
+- Fix Antigravity showing 100% left while Antigravity itself showed usage.
+  AI Usage now reads the Google host that counts Antigravity's usage, and
+  Argon Weekly appears on accounts where it was missing.
+- Stop reporting an expired Cursor session on Cursor 3.27 and later, which
+  encrypt the editor's login. AI Usage uses the Cursor CLI's login instead:
+  install the Cursor CLI and run `agent login` once.
+- Say when a Claude organization doesn't allow OAuth sign-ins, instead of
+  asking you to log in again.
+
+Thanks to mg-i-ant-mor, whale9820, arthurnunesc, and tomaszkotecki-dp for
+their reports and contributions.
+]]></description>
+            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.5.0/AI-Usage.dmg" length="4424106" type="application/octet-stream" sparkle:edSignature="kr+wamB5VdCGsu9a92vPPDM9lknYFsg42xNcdDULpNcYZUSfYsDN3/3OdbPFPI+P9Ce0zs55J+X1tH6vXGHACg=="/>
+        </item>
+        <item>
             <title>0.4.0</title>
             <pubDate>Sat, 07 Nov 2026 13:04:36 +0300</pubDate>
             <link>https://github.com/burakgon/ai-usage-menubar</link>
@@ -105,29 +135,9 @@ their reports and contributions.
 ]]></description>
             <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.3.0/AI-Usage.dmg" length="4228324" type="application/octet-stream" sparkle:edSignature="onbwIJJHSp+KUCwtOYTPrPm1qhbBwk5GHov2ZhOIuazW1hQ9IUWt7qS9ah3dMOlOc8zv4FmxsxTlxqHvExgQCQ=="/>
         </item>
-        <item>
-            <title>0.2.1</title>
-            <pubDate>Wed, 29 Jul 2026 17:16:15 +0300</pubDate>
-            <link>https://github.com/burakgon/ai-usage-menubar</link>
-            <sparkle:version>12</sparkle:version>
-            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <description sparkle:format="markdown"><![CDATA[# AI Usage 0.2.1
-
-This release fixes the menu bar panel's inactive appearance in light mode.
-
-- Activate AI Usage before presenting its popover so Liquid Glass uses the
-  correct active light-mode colors immediately.
-- Make the presented popover the key window without requiring a second click.
-- Introduce the adaptive three-bar app icon in light and dark appearances.
-- Keep provider tracking, saved menu bar choices, refresh behavior, and
-  background efficiency unchanged.
-]]></description>
-            <enclosure url="https://github.com/burakgon/ai-usage-menubar/releases/download/v0.2.1/AI-Usage.dmg" length="3903422" type="application/octet-stream" sparkle:edSignature="byKnEnz8xSxHOqTCIEXGUItLYcT2oZhQFnJZogtG12hoP91AwrTnet2GvLOz+YkGys3F/4CsXg/5+d8AHUafDw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: YtcAKmDb7NYd54xehDepBNnCt9VxBRbdp+JE0/sSI8oVNykvgV6WQ+PDwNI0qDZok5/FUwzYd42Oo4TaYP8ADA==
-length: 7593
+edSignature: 7dyUyZRj7jcPLV+VGEyc88tvzCixn1iAxoXEWOX0HV4OVJlOW3VHSGdaUb1EjNipfBHJLWC8JIu9TXpSPG/2Ag==
+length: 8126
 -->
