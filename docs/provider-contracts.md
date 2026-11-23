@@ -69,6 +69,9 @@ Refresh request:
 
 The access token is refreshed within five minutes of `expiresAt` (epoch
 milliseconds). A usage `401` or `403` causes at most one refresh and one retry.
+The exception is a `403` whose `error.details.error_code` is
+`oauth_not_allowed_for_organization`: the organization doesn't allow OAuth
+sign-ins, so the token is not refreshed and the card says why.
 `invalid_grant` means the session expired. A `429` honors `Retry-After`
 (seconds or HTTP date) up to an hour, and always waits at least the backoff:
 five minutes, doubling with each consecutive `429` up to an hour. The cooldown
@@ -273,9 +276,11 @@ login.
 
 Rotated credentials are persisted only to the source from which they were
 loaded. Claude compares the complete ordered credential generation before
-writing and again before publishing usage. Codex compares the exact source
-before writing. This prevents an in-flight refresh from overwriting a new CLI
-login.
+writing and again before publishing usage. When the generation changed, the
+credentials are reloaded once; a second change ends that refresh as a
+temporary failure without probing the logins loaded before it. Codex compares
+the exact source before writing. This prevents an in-flight refresh from
+overwriting a new CLI login.
 
 Temporary network failures, `429`, server errors, denied Antigravity quota, and
 invalid response shapes preserve the last-good in-memory snapshot and mark it

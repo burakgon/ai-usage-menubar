@@ -42,7 +42,6 @@ actor ClaudeProvider: UsageProvider {
 
         var generation = ClaudeCredentialGeneration(candidates)
         var lastAuthenticationFailure: ProviderFailure?
-        var lastTransientFailure: ProviderFailure?
 
         for candidate in candidates {
             do {
@@ -50,18 +49,21 @@ actor ClaudeProvider: UsageProvider {
             } catch ClaudeProviderError.credentialsChanged where credentialReloadsRemaining > 0 {
                 return try await fetch(credentialReloadsRemaining: credentialReloadsRemaining - 1)
             } catch ClaudeProviderError.credentialsChanged {
-                lastTransientFailure = ProviderFailure(
+                // The stored login changed again after the reload. The other
+                // candidates were loaded before that change, so probing them
+                // could not publish a reading, and refreshing one would
+                // rotate a token that could not be saved.
+                throw ProviderFailure(
                     .transient,
                     "Claude's login changed while refreshing. Try again."
                 )
-                continue
             } catch let failure as ProviderFailure where failure.kind == .authentication {
                 lastAuthenticationFailure = failure
                 continue
             }
         }
 
-        throw lastTransientFailure ?? lastAuthenticationFailure ?? ProviderFailure(
+        throw lastAuthenticationFailure ?? ProviderFailure(
             .authentication,
             "Not logged in. Run `claude` to authenticate."
         )
@@ -185,6 +187,8 @@ actor ClaudeProvider: UsageProvider {
         return snapshot
     }
 
+    /// A `403` that names the organization's own setting. Signing in again or
+    /// renewing the token cannot change it, so it is reported as it is.
     static func organizationBlockFailure(_ response: HTTPResponse) -> ProviderFailure? {
         guard response.statusCode == 403,
               let body = try? ProviderParsing.object(from: response.body),
@@ -196,7 +200,8 @@ actor ClaudeProvider: UsageProvider {
         }
         return ProviderFailure(
             .authentication,
-            "Anthropic blocks OAuth usage reads for this Claude organization."
+            "This Claude organization doesn't allow OAuth sign-ins, " +
+                "so its usage can't be read."
         )
     }
 

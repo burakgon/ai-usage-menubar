@@ -108,6 +108,113 @@ final class ProviderTests: XCTestCase {
         XCTAssertFalse(requests.contains { $0.url == ClaudeAuthStore.refreshURL })
     }
 
+    func testClaudeOrdinary403StillRenewsOnceBeforeAnOrganizationBlockIsReported() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let http = MockHTTPClient([
+            httpResponse(403, json: """
+            {"type":"error","error":{"type":"permission_error","message":"Forbidden"}}
+            """),
+            httpResponse(json: """
+            {"access_token": "new-access", "refresh_token": "new-refresh", "expires_in": 3600}
+            """),
+            httpResponse(403, json: """
+            {"type":"error","error":{"type":"permission_error","details":{"error_code":"oauth_not_allowed_for_organization"}}}
+            """)
+        ])
+        let date = FixedDateProvider(value: now)
+        let provider = ClaudeProvider(
+            authStore: ClaudeAuthStore(
+                environment: MockEnvironment(),
+                files: MemoryFiles(),
+                keychain: claudeKeychain(expiresAt: now.addingTimeInterval(3_600)),
+                dateProvider: date
+            ),
+            client: ClaudeUsageClient(http: http),
+            dateProvider: date
+        )
+
+        do {
+            _ = try await provider.fetch()
+            XCTFail("Expected authentication failure")
+        } catch let failure as ProviderFailure {
+            XCTAssertEqual(failure.kind, .authentication)
+            XCTAssertEqual(
+                failure.message,
+                "This Claude organization doesn't allow OAuth sign-ins, " +
+                    "so its usage can't be read."
+            )
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        // A 403 without the organization's error code is still treated as an
+        // expired token: one renewal, one retry.
+        let requests = await http.capturedRequests()
+        XCTAssertEqual(requests.map(\.url), [
+            ClaudeAuthStore.usageWithResetGrantsURL,
+            ClaudeAuthStore.refreshURL,
+            ClaudeAuthStore.usageWithResetGrantsURL
+        ])
+    }
+
+    func testClaudeStopsWhenTheLoginKeepsChanging() async {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        @Sendable func document(accessToken: String, expiresIn: TimeInterval) -> String {
+            encodedJSON(ClaudeCredentialsDocument(claudeAiOauth: ClaudeOAuth(
+                accessToken: accessToken,
+                refreshToken: "refresh",
+                expiresAt: (now.timeIntervalSince1970 + expiresIn) * 1_000,
+                subscriptionType: nil,
+                rateLimitTier: nil,
+                scopes: ["user:profile"]
+            )))
+        }
+        // Claude Code rotates its Keychain login during every read.
+        let keychain = RotatingKeychain { read in
+            document(accessToken: "access-\(read)", expiresIn: 3_600)
+        }
+        // A second login that is due for a token refresh.
+        let files = MemoryFiles([
+            "~/.claude/.credentials.json":
+                document(accessToken: "file-access", expiresIn: -60)
+        ])
+        let usage = httpResponse(json: """
+        {"five_hour": {"utilization": 31, "resets_at": 1800003600}}
+        """)
+        let http = MockHTTPClient([usage, usage])
+        let date = FixedDateProvider(value: now)
+        let provider = ClaudeProvider(
+            authStore: ClaudeAuthStore(
+                environment: MockEnvironment(),
+                files: files,
+                keychain: keychain,
+                dateProvider: date
+            ),
+            client: ClaudeUsageClient(http: http),
+            dateProvider: date
+        )
+
+        do {
+            _ = try await provider.fetch()
+            XCTFail("Expected a retryable failure")
+        } catch let failure as ProviderFailure {
+            XCTAssertEqual(failure.kind, .transient)
+            XCTAssertEqual(
+                failure.message,
+                "Claude's login changed while refreshing. Try again."
+            )
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+        // One usage read before the change and one after reloading. The
+        // file login was loaded before the second change, so it is neither
+        // probed nor refreshed against a login that no longer matches.
+        let requests = await http.capturedRequests()
+        XCTAssertEqual(requests.map(\.url), [
+            ClaudeAuthStore.usageWithResetGrantsURL,
+            ClaudeAuthStore.usageWithResetGrantsURL
+        ])
+    }
+
     func testClaudeCooldownSkipsSecondRequestAfter429() async {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let oauth = ClaudeOAuth(

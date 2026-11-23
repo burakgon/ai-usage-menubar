@@ -95,6 +95,31 @@ final class MemoryKeychain: KeychainAccessing, @unchecked Sendable {
     }
 }
 
+/// A current-user Keychain item whose value is different on every read, as
+/// when its owner rewrites it between two reads.
+final class RotatingKeychain: KeychainAccessing, @unchecked Sendable {
+    private let lock = NSLock()
+    private let value: @Sendable (Int) -> String
+    private var reads = 0
+
+    init(value: @escaping @Sendable (Int) -> String) {
+        self.value = value
+    }
+
+    func readGenericPassword(service: String) throws -> String? { nil }
+
+    func writeGenericPassword(service: String, value: String) throws {}
+
+    func readGenericPasswordForCurrentUser(service: String) throws -> String? {
+        lock.withLock {
+            reads += 1
+            return value(reads)
+        }
+    }
+
+    func writeGenericPasswordForCurrentUser(service: String, value: String) throws {}
+}
+
 actor MockHTTPClient: HTTPClient {
     private var responses: [HTTPResponse]
     private var requests: [HTTPRequest] = []
