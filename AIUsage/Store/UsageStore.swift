@@ -9,9 +9,6 @@ struct MenuBarReading: Equatable, Sendable {
     let isStale: Bool
     /// The window runs out before its reset at its current pace.
     let isAtRisk: Bool
-    let resetsAt: Date?
-    /// When the window fills at its current pace, if before `resetsAt`.
-    let exhaustsAt: Date?
 
     init(
         provider: ProviderID,
@@ -19,9 +16,7 @@ struct MenuBarReading: Equatable, Sendable {
         value: MenuBarReadingValue,
         displayMode: UsageDisplayMode,
         isStale: Bool,
-        isAtRisk: Bool = false,
-        resetsAt: Date? = nil,
-        exhaustsAt: Date? = nil
+        isAtRisk: Bool = false
     ) {
         self.provider = provider
         self.metric = metric
@@ -29,8 +24,6 @@ struct MenuBarReading: Equatable, Sendable {
         self.displayMode = displayMode
         self.isStale = isStale
         self.isAtRisk = isAtRisk
-        self.resetsAt = resetsAt
-        self.exhaustsAt = exhaustsAt
     }
 }
 
@@ -233,8 +226,7 @@ final class UsageStore {
 
     func menuBarReadings(
         for items: [MenuBarItemID],
-        displayMode: UsageDisplayMode = .used,
-        workSchedule: WorkSchedule? = nil
+        displayMode: UsageDisplayMode = .used
     ) -> [MenuBarReading] {
         let now = Date()
         return items.compactMap { item in
@@ -248,28 +240,20 @@ final class UsageStore {
                 return nil
             }
 
-            let exhaustion = state.snapshot?.exhaustion(
-                for: item.metric,
-                now: now,
-                schedule: workSchedule
-            )
             return MenuBarReading(
                 provider: item.provider,
                 metric: item.metric,
                 value: value,
                 displayMode: displayMode,
                 isStale: state.isStale,
-                isAtRisk: exhaustion != nil,
-                resetsAt: state.snapshot?.window(for: item.metric)?.resetsAt,
-                exhaustsAt: exhaustion
+                isAtRisk: state.snapshot?.isAtRisk(item.metric, now: now) ?? false
             )
         }
     }
 
     func menuBarProviderReadings(
         for configurations: [MenuBarProviderConfiguration],
-        displayMode: UsageDisplayMode = .used,
-        workSchedule: WorkSchedule? = nil
+        displayMode: UsageDisplayMode = .used
     ) -> [MenuBarProviderReadings] {
         configurations.compactMap { configuration in
             guard trackedProviderIDs.contains(configuration.provider),
@@ -286,8 +270,7 @@ final class UsageStore {
             }
             var readings = menuBarReadings(
                 for: items,
-                displayMode: displayMode,
-                workSchedule: workSchedule
+                displayMode: displayMode
             )
             // Selected metrics can vanish from the live snapshot (for
             // example, Claude accounts without a five-hour window return
@@ -300,8 +283,7 @@ final class UsageStore {
                ) {
                 readings = menuBarReadings(
                     for: [fallback],
-                    displayMode: displayMode,
-                    workSchedule: workSchedule
+                    displayMode: displayMode
                 )
             }
             return MenuBarProviderReadings(
@@ -314,14 +296,9 @@ final class UsageStore {
 
     func menuBarReading(
         for item: MenuBarItemID,
-        displayMode: UsageDisplayMode = .used,
-        workSchedule: WorkSchedule? = nil
+        displayMode: UsageDisplayMode = .used
     ) -> MenuBarReading? {
-        menuBarReadings(
-            for: [item],
-            displayMode: displayMode,
-            workSchedule: workSchedule
-        ).first
+        menuBarReadings(for: [item], displayMode: displayMode).first
     }
 
     private func applyInstalledProviders(_ installedProviders: Set<ProviderID>?) {

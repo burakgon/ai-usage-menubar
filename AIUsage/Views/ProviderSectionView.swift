@@ -231,11 +231,6 @@ enum CompactCountdown {
     }
 }
 
-extension EnvironmentValues {
-    /// The working hours the forecast counts, or `nil` for calendar time.
-    @Entry var workSchedule: WorkSchedule?
-}
-
 /// The tile's reset line, with when the window fills at its current pace
 /// when that comes first.
 struct QuotaTimingPresentation: Equatable {
@@ -244,7 +239,7 @@ struct QuotaTimingPresentation: Equatable {
     let compactText: String?
     let accessibilityText: String?
 
-    init(window: QuotaWindow, measuredAt: Date, now: Date, schedule: WorkSchedule? = nil) {
+    init(window: QuotaWindow, measuredAt: Date, now: Date) {
         guard let reset = window.resetsAt else {
             isAtRisk = false
             text = nil
@@ -256,10 +251,7 @@ struct QuotaTimingPresentation: Equatable {
             .map { "Reset \($0)" } ?? "Resetting"
         // Once the reset has passed, the reading predates it: no forecast.
         guard now < reset,
-              let exhaustion = window.projectedExhaustion(
-                  measuredAt: measuredAt,
-                  schedule: schedule
-              ) else {
+              let exhaustion = window.projectedExhaustion(measuredAt: measuredAt) else {
             isAtRisk = false
             text = resetText
             compactText = resetText
@@ -417,7 +409,6 @@ private struct QuotaGrid: View {
 private struct QuotaTile: View {
     let window: QuotaWindow
     let measuredAt: Date
-    @Environment(\.workSchedule) private var workSchedule
     let displayMode: UsageDisplayMode
 
     var body: some View {
@@ -425,8 +416,7 @@ private struct QuotaTile: View {
             let timing = QuotaTimingPresentation(
                 window: window,
                 measuredAt: measuredAt,
-                now: context.date,
-                schedule: workSchedule
+                now: context.date
             )
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {

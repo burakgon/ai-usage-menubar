@@ -106,9 +106,7 @@ time.
 - When a limit is on pace to run out before it resets, its card shows when it
   will be full, and an hourglass marks it in the panel and the menu bar. The
   pace is the average since the limit's window started, worked out from the
-  current reading, so nothing is stored between refreshes. Turn on
-  **Working hours only** in Settings to measure weekly and monthly limits in
-  your working days and hours, so nights and weekends don't skew the pace.
+  current reading, so nothing is stored between refreshes.
 - Percentages are shown exactly as the provider reports them. Only the bars are
   clamped to `0...100`, and a remaining percentage never goes below zero.
 

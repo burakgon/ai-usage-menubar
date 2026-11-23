@@ -481,8 +481,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
             (
                 groups: store.menuBarProviderReadings(
                     for: preferences.menuBarProviderConfigurations,
-                    displayMode: preferences.usageDisplayMode,
-                    workSchedule: preferences.activeWorkSchedule
+                    displayMode: preferences.usageDisplayMode
                 ),
                 trackedProviders: preferences.trackedProviderIDs,
                 refreshInterval: preferences.refreshInterval
@@ -504,7 +503,7 @@ final class MenuBarController: NSObject, NSPopoverDelegate {
         let collectionPresentation = MenuBarReadingsPresentation(
             groups: groups
         )
-        button.toolTip = MenuBarTooltip.text(for: groups, now: Date())
+        button.toolTip = collectionPresentation.accessibilityLabel
         button.setAccessibilityLabel(collectionPresentation.accessibilityLabel)
 
         guard !groups.isEmpty else {
@@ -559,7 +558,6 @@ private struct DashboardRootView: View {
             openSettings: openSettings,
             providerOrder: preferences.providerOrder
         )
-        .environment(\.workSchedule, preferences.activeWorkSchedule)
     }
 }
 

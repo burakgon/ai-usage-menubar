@@ -72,24 +72,6 @@ final class AppPreferences {
         }
     }
 
-    /// Measure the pace of windows longer than a day in working hours.
-    var countsWorkingHoursOnly: Bool {
-        didSet {
-            defaults.set(countsWorkingHoursOnly, forKey: Key.countsWorkingHoursOnly)
-        }
-    }
-
-    var workSchedule: WorkSchedule {
-        didSet {
-            defaults.set(Self.encode(workSchedule), forKey: Key.workSchedule)
-        }
-    }
-
-    /// The schedule the forecast uses, or `nil` while it is turned off.
-    var activeWorkSchedule: WorkSchedule? {
-        countsWorkingHoursOnly ? workSchedule : nil
-    }
-
     @ObservationIgnored
     private let defaults: UserDefaults
     @ObservationIgnored
@@ -221,12 +203,6 @@ final class AppPreferences {
             forKey: Key.refreshInterval,
             in: defaults
         ) ?? .fiveMinutes
-        countsWorkingHoursOnly = defaults.bool(forKey: Key.countsWorkingHoursOnly)
-        workSchedule = Self.decode(
-            WorkSchedule.self,
-            forKey: Key.workSchedule,
-            in: defaults
-        ) ?? .standard
 
         if hasLegacyInstallation &&
             defaults.object(forKey: Key.hasCompletedInitialSetup) == nil {
@@ -566,7 +542,5 @@ final class AppPreferences {
         static let menuBarWindow = "menuBarWindow"
         static let usageDisplayMode = "usageDisplayMode"
         static let refreshInterval = "refreshInterval"
-        static let countsWorkingHoursOnly = "countsWorkingHoursOnly.v1"
-        static let workSchedule = "workSchedule.v1"
     }
 }
