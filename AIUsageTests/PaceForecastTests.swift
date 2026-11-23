@@ -54,6 +54,33 @@ final class PaceForecastTests: XCTestCase {
         XCTAssertNil(session(used: 40, noReset: true).projectedExhaustion(measuredAt: measured))
     }
 
+    func testOnlyWindowsShorterThanADayAreForecast() {
+        // 30% a day into a week would fill in a little over three days.
+        // That pace includes the nights and says nothing about the week.
+        let week = QuotaWindow(
+            kind: .weekly,
+            usedPercent: 30,
+            resetsAt: t0.addingTimeInterval(7 * 24 * hour),
+            startsAt: t0
+        )
+        XCTAssertNil(week.projectedExhaustion(measuredAt: t0.addingTimeInterval(24 * hour)))
+
+        func window(hours: Double) -> QuotaWindow {
+            QuotaWindow(
+                kind: .daily,
+                usedPercent: 80,
+                resetsAt: t0.addingTimeInterval(hours * hour),
+                startsAt: t0
+            )
+        }
+        let measured = t0.addingTimeInterval(6 * hour)
+        XCTAssertNil(window(hours: 24).projectedExhaustion(measuredAt: measured))
+        XCTAssertEqual(
+            window(hours: 23).projectedExhaustion(measuredAt: measured),
+            t0.addingTimeInterval(7.5 * hour)
+        )
+    }
+
     func testNoProjectionAfterReset() {
         let window = session(used: 50)
         XCTAssertNil(window.projectedExhaustion(measuredAt: t0.addingTimeInterval(5 * hour)))
@@ -90,14 +117,14 @@ final class PaceForecastTests: XCTestCase {
         )
     }
 
-    func testAtRiskTimingShowsFullBeforeReset() {
+    func testAtRiskTimingShowsWhenTheSessionRunsOutBeforeReset() {
         let presentation = timing(used: 40, nowAfter: 70)
         XCTAssertTrue(presentation.isAtRisk)
-        XCTAssertEqual(presentation.text, "Full 1h 20m · Reset 3h 50m")
-        XCTAssertEqual(presentation.compactText, "Full 1h 20m")
+        XCTAssertEqual(presentation.text, "Out 1h 20m · Reset 3h 50m")
+        XCTAssertEqual(presentation.compactText, "Out 1h 20m")
         XCTAssertEqual(
             presentation.accessibilityText,
-            "full in 1h 20m at this pace, Reset 3h 50m"
+            "runs out in 1h 20m at this pace, Reset 3h 50m"
         )
     }
 
@@ -109,11 +136,15 @@ final class PaceForecastTests: XCTestCase {
         XCTAssertEqual(presentation.accessibilityText, "Reset 3h 50m")
     }
 
-    func testPastProjectionReadsFullSoon() {
+    func testPastProjectionReadsOutSoon() {
         let presentation = timing(used: 40, nowAfter: 190)
         XCTAssertTrue(presentation.isAtRisk)
-        XCTAssertEqual(presentation.text, "Full soon · Reset 1h 50m")
-        XCTAssertEqual(presentation.compactText, "Full soon")
+        XCTAssertEqual(presentation.text, "Out soon · Reset 1h 50m")
+        XCTAssertEqual(presentation.compactText, "Out soon")
+        XCTAssertEqual(
+            presentation.accessibilityText,
+            "runs out soon at this pace, Reset 1h 50m"
+        )
     }
 
     func testTimingDropsForecastOnceResetHasPassed() {

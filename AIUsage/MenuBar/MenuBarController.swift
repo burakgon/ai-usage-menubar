@@ -259,7 +259,7 @@ enum MenuBarStatusImageRenderer {
         )
     }
 
-    /// The same hourglass the panel shows on a window that runs out before
+    /// The same hourglass the panel shows on a session that runs out before
     /// its reset.
     private static func riskImage(font: NSFont) -> NSImage? {
         NSImage(

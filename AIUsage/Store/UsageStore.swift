@@ -7,7 +7,7 @@ struct MenuBarReading: Equatable, Sendable {
     let value: MenuBarReadingValue
     let displayMode: UsageDisplayMode
     let isStale: Bool
-    /// The window runs out before its reset at its current pace.
+    /// The session runs out before its reset at its current pace.
     let isAtRisk: Bool
 
     init(

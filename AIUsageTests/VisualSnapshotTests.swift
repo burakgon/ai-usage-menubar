@@ -225,7 +225,7 @@ final class VisualSnapshotTests: XCTestCase {
             fetchedAt: now
         )
         XCTAssertNotNil(snapshot.windows[0].projectedExhaustion(measuredAt: now))
-        XCTAssertNotNil(snapshot.windows[1].projectedExhaustion(measuredAt: now))
+        XCTAssertNil(snapshot.windows[1].projectedExhaustion(measuredAt: now))
         let state = ProviderState(provider: .claude, snapshot: snapshot)
         let size = measuredSize(of: ProviderSectionView(state: state), width: panelWidth - 20)
 

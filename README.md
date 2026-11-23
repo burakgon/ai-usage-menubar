@@ -103,10 +103,11 @@ time.
   accounts that have none, the tool's default limit is shown instead.
 - The panel lists when each banked reset expires and turns the next one orange
   in its final 24 hours.
-- When a limit is on pace to run out before it resets, its card shows when it
-  will be full, and an hourglass marks it in the panel and the menu bar. The
-  pace is the average since the limit's window started, worked out from the
-  current reading, so nothing is stored between refreshes.
+- When a session is on pace to run out before it resets, its card shows when
+  that will be, and an hourglass marks it in the panel and the menu bar. The
+  pace is the average since the session started, worked out from the current
+  reading, so nothing is stored between refreshes. Weekly and monthly limits
+  get no estimate, because their pace depends on when you work.
 - Percentages are shown exactly as the provider reports them. Only the bars are
   clamped to `0...100`, and a remaining percentage never goes below zero.
 

@@ -231,7 +231,7 @@ enum CompactCountdown {
     }
 }
 
-/// The tile's reset line, with when the window fills at its current pace
+/// The tile's reset line, with when a session runs out at its current pace
 /// when that comes first.
 struct QuotaTimingPresentation: Equatable {
     let isAtRisk: Bool
@@ -258,13 +258,16 @@ struct QuotaTimingPresentation: Equatable {
             accessibilityText = resetText
             return
         }
-        let full = CompactCountdown.text(until: exhaustion, from: now)
+        let countdown = CompactCountdown.text(until: exhaustion, from: now)
         isAtRisk = true
-        let fullText = full.map { "Full \($0)" } ?? "Full soon"
-        let spokenFull = full.map { "full in \($0)" } ?? "full soon"
-        compactText = fullText
-        text = "\(fullText) · \(resetText)"
-        accessibilityText = "\(spokenFull) at this pace, \(resetText)"
+        // "Out" reads the same whether the tile shows what is used or what
+        // is left, and is short enough to keep the reset beside it.
+        let forecastText = "Out \(countdown ?? "soon")"
+        let spokenForecast = countdown.map { "runs out in \($0)" }
+            ?? "runs out soon"
+        compactText = forecastText
+        text = "\(forecastText) · \(resetText)"
+        accessibilityText = "\(spokenForecast) at this pace, \(resetText)"
     }
 }
 
