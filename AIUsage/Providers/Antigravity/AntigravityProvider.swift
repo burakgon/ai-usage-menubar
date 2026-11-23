@@ -4,6 +4,8 @@ import Foundation
 ///
 /// 1. Google Cloud Code, with the client's User-Agent and metadata and the
 ///    account's own Cloud project. This works while Antigravity is closed.
+///    The quota summary comes from the daily host first, because it holds
+///    the counters the Antigravity tools themselves show.
 /// 2. When Google refuses or cannot be reached, a running Antigravity app or
 ///    `agy` CLI, which serves the same summary on its loopback listener.
 ///

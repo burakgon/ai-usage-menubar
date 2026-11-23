@@ -9,6 +9,9 @@ patterns from OpenUsage:
   commit 5a2864f19a1c664f6a140ba06abad5596000af10
   local language-server discovery from tag v0.7.16
   provider updates through commit fdf7a234b76b6a71522880cc9ab5b38044471698
+  Antigravity quota host order and client identity from commits
+  ee9815937de6d52ae490f2d8de2412fadc26916d and
+  e1ffa5712d8aebcc310c598b8f6b7973ad724919
 
 The adapted areas include Claude Code, Codex, Cursor, Antigravity, GitHub
 Copilot, Devin, Grok, and Z.ai credential discovery, OAuth refresh and

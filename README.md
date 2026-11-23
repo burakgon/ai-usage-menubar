@@ -216,10 +216,11 @@ as described in [SECURITY.md](SECURITY.md).
 
 Provider contracts and parts of the system-boundary implementation were adapted
 from [OpenUsage](https://github.com/robinebers/openusage), using stable tag
-`v0.7.6`, local language-server discovery from tag `v0.7.16`, and provider
-updates through commit `fdf7a234b76b6a71522880cc9ab5b38044471698`. See
-[NOTICE](NOTICE) for attribution. Provider names and marks belong to their
-owners and don't imply endorsement.
+`v0.7.6`, local language-server discovery from tag `v0.7.16`, provider
+updates through commit `fdf7a234b76b6a71522880cc9ab5b38044471698`, and the
+Antigravity quota host order and client identity from commits `ee98159` and
+`e1ffa57`. See [NOTICE](NOTICE) for attribution. Provider names and marks
+belong to their owners and don't imply endorsement.
 
 ## License
 

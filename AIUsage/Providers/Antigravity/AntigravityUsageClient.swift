@@ -14,7 +14,7 @@ enum AntigravityCodeAssistOutcome: Sendable {
 
 /// The result of `retrieveUserQuotaSummary` across both Cloud Code hosts.
 enum AntigravitySummaryOutcome: Sendable {
-    /// Every successful body, production host first.
+    /// Every successful body, daily host first.
     case success([Data])
     /// `401`: the access token itself was refused.
     case tokenRefused
@@ -46,12 +46,17 @@ private struct AntigravityGoogleTokenResponse: Decodable {
 }
 
 struct AntigravityUsageClient: Sendable {
-    /// Production first: the daily host can answer the quota summary with a
-    /// whole pool missing.
+    /// The plan and the project are read from production first.
     static let cloudBases = [
         "https://cloudcode-pa.googleapis.com",
         "https://daily-cloudcode-pa.googleapis.com"
     ]
+    /// The quota summary is read from the daily host first. Antigravity's
+    /// usage is counted there, while production can answer with every window
+    /// untouched: full, and resetting one whole window from now. Production
+    /// only supplies the pools the daily host leaves out or declines to
+    /// share; it never stands in for a daily host that is temporarily out.
+    static let summaryBases = Array(cloudBases.reversed())
     static let summaryPath = "/v1internal:retrieveUserQuotaSummary"
     static let planPath = "/v1internal:loadCodeAssist"
     static let googleOAuthURL = URL(
@@ -65,15 +70,17 @@ struct AntigravityUsageClient: Sendable {
     static let googleClientSecret =
         "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"
 
-    /// The Antigravity client's own User-Agent shape. Google answers other
-    /// callers without the Gemini quota group and without `paidTier`.
+    /// The Antigravity hub client's own User-Agent shape. Google answers
+    /// other callers without the Gemini quota group and without `paidTier`,
+    /// and answers the IDE identity (`antigravity/2.24.0`) without the Argon
+    /// group.
     static let userAgent: String = {
         #if arch(arm64)
         let architecture = "arm64"
         #else
         let architecture = "amd64"
         #endif
-        return "antigravity/2.24.0 (aidev_client; os_type=darwin; " +
+        return "antigravity/hub/2.24.0 (aidev_client; os_type=darwin; " +
             "arch=\(architecture))"
     }()
 
@@ -121,9 +128,12 @@ struct AntigravityUsageClient: Sendable {
         return .unavailable
     }
 
-    /// Asks production first and stops there when its answer already holds
-    /// every shared pool; otherwise also asks the daily host so the mapper can
-    /// merge the pools each host returned.
+    /// Asks the daily host first and stops there when its answer already
+    /// holds every shared pool; otherwise also asks production so the mapper
+    /// can fill in the pools the daily host left out. When the daily host
+    /// cannot answer at all, the read fails as temporary and the last reading
+    /// stays, because production's untouched windows would replace it with a
+    /// false 100% left.
     func quotaSummary(
         accessToken: String,
         project: String?,
@@ -140,15 +150,20 @@ struct AntigravityUsageClient: Sendable {
         }
 
         var responses: [HTTPResponse] = []
-        for (index, base) in Self.cloudBases.enumerated() {
-            guard let url = URL(string: base + Self.summaryPath),
-                  let response = try? await http.send(request(
-                      url: url,
-                      accessToken: accessToken,
-                      body: payload
-                  )) else {
+        for (index, base) in Self.summaryBases.enumerated() {
+            guard let url = URL(string: base + Self.summaryPath) else {
                 continue
             }
+            let response = try? await http.send(request(
+                url: url,
+                accessToken: accessToken,
+                body: payload
+            ))
+            if index == 0,
+               let outage = Self.temporaryFailure(response, now: now) {
+                return outage
+            }
+            guard let response else { continue }
             responses.append(response)
             if index == 0,
                (200..<300).contains(response.statusCode),
@@ -170,7 +185,7 @@ struct AntigravityUsageClient: Sendable {
         // every host answered 403. A 403 alongside an unreachable or failing
         // host is a transient state, not an account-level denial.
         let everyHostDenied =
-            responses.count == Self.cloudBases.count &&
+            responses.count == Self.summaryBases.count &&
             responses.allSatisfy { $0.statusCode == 403 }
         if everyHostDenied {
             return .denied
@@ -181,6 +196,25 @@ struct AntigravityUsageClient: Sendable {
             )
         }
         return .unavailable
+    }
+
+    /// No answer, a timeout, throttling, or a server error: the host may
+    /// well answer the next read.
+    private static func temporaryFailure(
+        _ response: HTTPResponse?,
+        now: Date
+    ) -> AntigravitySummaryOutcome? {
+        guard let response else { return .unavailable }
+        switch response.statusCode {
+        case 429:
+            return .rateLimited(
+                retryAt: ProviderParsing.retryDate(from: response, now: now)
+            )
+        case 408, 500...:
+            return .unavailable
+        default:
+            return nil
+        }
     }
 
     func refresh(_ refreshToken: String) async -> AntigravityTokenRefreshOutcome {

@@ -9,12 +9,6 @@ final class AntigravityTests: XCTestCase {
     // MARK: - Mapper
 
     func testSummaryMergesPoolsAcrossHostsWithTheFirstAnswerWinning() throws {
-        let production = summary("""
-        {"displayName":"Claude and GPT models","buckets":[
-          {"bucketId":"3p-5h","window":"5h","remainingFraction":0.9},
-          {"bucketId":"3p-weekly","window":"weekly","remainingFraction":0.8}
-        ]}
-        """)
         let dailyHost = summary("""
         {"displayName":"Gemini Models","buckets":[
           {"bucketId":"gemini-5h","window":"5h","remainingFraction":0.5,
@@ -22,12 +16,22 @@ final class AntigravityTests: XCTestCase {
           {"bucketId":"gemini-weekly","window":"weekly","remainingFraction":0.25}
         ]},
         {"displayName":"Claude and GPT models","buckets":[
-          {"bucketId":"3p-5h","window":"5h","remainingFraction":0.1}
+          {"bucketId":"3p-5h","window":"5h","remainingFraction":0.9}
+        ]}
+        """)
+        let production = summary("""
+        {"displayName":"Gemini Models","buckets":[
+          {"bucketId":"gemini-5h","window":"5h","remainingFraction":1,
+           "resetTime":"2027-01-15T15:00:00Z"}
+        ]},
+        {"displayName":"Claude and GPT models","buckets":[
+          {"bucketId":"3p-5h","window":"5h","remainingFraction":0.1},
+          {"bucketId":"3p-weekly","window":"weekly","remainingFraction":0.8}
         ]}
         """)
 
         let snapshot = try XCTUnwrap(AntigravityUsageMapper.summary(
-            [production, dailyHost],
+            [dailyHost, production],
             planName: "Google AI Pro",
             now: now
         ))
@@ -36,8 +40,13 @@ final class AntigravityTests: XCTestCase {
             snapshot.windows.map(\.kind),
             [.session, .weekly, .claudePool, .claudePoolWeekly]
         )
+        // Only Claude Weekly, which the first body leaves out, comes from
+        // the second.
         XCTAssertEqual(snapshot.windows.map(\.usedPercent), [50, 75, 10, 20])
-        XCTAssertNotNil(snapshot.windows[0].resetsAt)
+        XCTAssertEqual(
+            snapshot.windows[0].resetsAt,
+            ProviderParsing.date("2027-01-15T12:00:00Z")
+        )
         XCTAssertEqual(snapshot.planName, "Google AI Pro")
     }
 
@@ -139,9 +148,10 @@ final class AntigravityTests: XCTestCase {
 
     // MARK: - Cloud Code client
 
-    func testQuotaSummaryUsesTheClientIdentityAndStopsWhenProductionIsComplete() async {
+    func testQuotaSummaryUsesTheClientIdentityAndStopsWhenTheDailyHostIsComplete() async {
         let http = RoutedHTTPClient([
-            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)],
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: untouchedJSON)]
         ])
         let client = AntigravityUsageClient(http: http)
 
@@ -154,23 +164,27 @@ final class AntigravityTests: XCTestCase {
         guard case let .success(bodies) = outcome else {
             return XCTFail("Expected a summary, got \(outcome)")
         }
-        XCTAssertEqual(bodies.count, 1)
+        XCTAssertEqual(bodies, [completeSummary])
         let requests = await http.capturedRequests()
-        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.map(\.url.absoluteString), [
+            daily + AntigravityUsageClient.summaryPath
+        ])
         XCTAssertEqual(requests[0].headers["User-Agent"], AntigravityUsageClient.userAgent)
-        XCTAssertTrue(AntigravityUsageClient.userAgent.hasPrefix("antigravity/"))
+        // The hub identity is the one Google answers with the Argon group.
+        XCTAssertTrue(AntigravityUsageClient.userAgent.hasPrefix("antigravity/hub/"))
         let body = try? JSONSerialization.jsonObject(
             with: requests[0].body ?? Data()
         ) as? [String: String]
         XCTAssertEqual(body, ["project": "project-1"])
     }
 
-    func testQuotaSummaryAsksTheDailyHostWhenProductionIsIncomplete() async {
+    func testQuotaSummaryAsksProductionWhenTheDailyHostIsIncomplete() async {
+        let incomplete = """
+        {"groups":[{"buckets":[{"bucketId":"3p-weekly","remainingFraction":1}]}]}
+        """
         let http = RoutedHTTPClient([
-            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: """
-            {"groups":[{"buckets":[{"bucketId":"3p-weekly","remainingFraction":1}]}]}
-            """)],
-            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: incomplete)],
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
         ])
 
         let outcome = await AntigravityUsageClient(http: http).quotaSummary(
@@ -182,9 +196,82 @@ final class AntigravityTests: XCTestCase {
         guard case let .success(bodies) = outcome else {
             return XCTFail("Expected summaries, got \(outcome)")
         }
-        XCTAssertEqual(bodies.count, 2)
-        let body = await http.capturedRequests().first?.body
-        XCTAssertEqual(body, Data("{}".utf8))
+        // The daily host's answer stays first, so its pools win the merge.
+        XCTAssertEqual(bodies, [Data(incomplete.utf8), completeSummary])
+        let requests = await http.capturedRequests()
+        XCTAssertEqual(requests.map(\.url.absoluteString), [
+            daily + AntigravityUsageClient.summaryPath,
+            prod + AntigravityUsageClient.summaryPath
+        ])
+        XCTAssertEqual(requests.first?.body, Data("{}".utf8))
+    }
+
+    func testProductionDoesNotStandInForADailyHostThatIsTemporarilyOut() async {
+        // Production would answer with every window untouched, which reads
+        // as a fresh 100% left.
+        func outcome(
+            daily response: HTTPResponse?
+        ) async -> (AntigravitySummaryOutcome, [String]) {
+            var routes = [
+                prod + AntigravityUsageClient.summaryPath: [httpResponse(json: untouchedJSON)]
+            ]
+            if let response {
+                routes[daily + AntigravityUsageClient.summaryPath] = [response]
+            }
+            let http = RoutedHTTPClient(routes)
+            let outcome = await AntigravityUsageClient(http: http).quotaSummary(
+                accessToken: "token",
+                project: nil,
+                now: now
+            )
+            return (outcome, await http.capturedRequests().map(\.url.absoluteString))
+        }
+
+        for response in [nil, httpResponse(503), httpResponse(408)] {
+            let (result, requests) = await outcome(daily: response)
+            guard case .unavailable = result else {
+                return XCTFail("Expected a temporary failure, got \(result)")
+            }
+            XCTAssertEqual(requests, [daily + AntigravityUsageClient.summaryPath])
+        }
+
+        let (limited, requests) = await outcome(
+            daily: httpResponse(429, headers: ["Retry-After": "90"])
+        )
+        guard case let .rateLimited(retryAt) = limited else {
+            return XCTFail("Expected a rate limit, got \(limited)")
+        }
+        XCTAssertEqual(retryAt, now.addingTimeInterval(90))
+        XCTAssertEqual(requests, [daily + AntigravityUsageClient.summaryPath])
+    }
+
+    func testProductionAnswersForADailyHostThatDeclinesToShare() async {
+        let http = RoutedHTTPClient([
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(403)],
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
+        ])
+
+        let outcome = await AntigravityUsageClient(http: http).quotaSummary(
+            accessToken: "token",
+            project: nil,
+            now: now
+        )
+
+        guard case let .success(bodies) = outcome else {
+            return XCTFail("Expected production's summary, got \(outcome)")
+        }
+        XCTAssertEqual(bodies, [completeSummary])
+    }
+
+    func testAnOutageOnTheDailyHostKeepsTheLastReading() async {
+        let http = RoutedHTTPClient([
+            prod + AntigravityUsageClient.planPath: [httpResponse(json: "{}")],
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(503)],
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: untouchedJSON)]
+        ])
+
+        // A temporary failure keeps the last reading and marks it stale.
+        await assertFailure(makeProvider(http: http), kind: .transient)
     }
 
     func testQuotaSummarySeparatesDenialRefusalAndRateLimits() async {
@@ -287,7 +374,7 @@ final class AntigravityTests: XCTestCase {
             prod + AntigravityUsageClient.planPath: [httpResponse(json: """
             {"paidTier":{"id":"g1-ultra-tier"},"cloudaicompanionProject":"p"}
             """)],
-            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
         ])
         let provider = makeProvider(http: http)
 
@@ -305,6 +392,58 @@ final class AntigravityTests: XCTestCase {
         XCTAssertEqual(planReads.count, 1)
     }
 
+    func testProviderShowsTheDailyHostsCountersNotProductionsUntouchedWindows() async throws {
+        // What the two hosts answered for one account with real usage:
+        // production reported every window full and resetting one whole
+        // window from now.
+        let http = RoutedHTTPClient([
+            prod + AntigravityUsageClient.planPath: [httpResponse(json: """
+            {"paidTier":{"id":"g1-pro-tier"},"cloudaicompanionProject":"p"}
+            """)],
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: """
+            {"groups":[
+              {"displayName":"Gemini Models","buckets":[
+                {"bucketId":"gemini-weekly","window":"weekly",
+                 "remainingFraction":0.9574321,"resetTime":"2027-01-20T23:11:14Z"},
+                {"bucketId":"gemini-5h","window":"5h",
+                 "remainingFraction":0.8951,"resetTime":"2027-01-15T04:06:00Z"}
+              ]},
+              {"displayName":"Claude and GPT models","buckets":[
+                {"bucketId":"3p-weekly","window":"weekly",
+                 "remainingFraction":1,"resetTime":"2027-01-22T00:00:00Z"},
+                {"bucketId":"3p-5h","window":"5h",
+                 "remainingFraction":1,"resetTime":"2027-01-15T05:00:00Z"}
+              ]},
+              {"displayName":"Gemini 4 Argon","buckets":[
+                {"bucketId":"gemini-argon-wtu-weekly","window":"weekly",
+                 "remainingFraction":1,"resetTime":"2027-01-22T00:00:00Z"}
+              ]}
+            ]}
+            """)],
+            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: untouchedJSON)]
+        ])
+
+        let snapshot = try await makeProvider(http: http).fetch()
+
+        XCTAssertEqual(
+            snapshot.windows.map(\.kind),
+            [.session, .weekly, .argonWeekly, .claudePool, .claudePoolWeekly]
+        )
+        XCTAssertEqual(snapshot.windows.map(\.usedPercent), [10, 4, 0, 0, 0])
+        XCTAssertEqual(
+            snapshot.windows[0].resetsAt,
+            ProviderParsing.date("2027-01-15T04:06:00Z")
+        )
+        XCTAssertEqual(
+            snapshot.windows[1].resetsAt,
+            ProviderParsing.date("2027-01-20T23:11:14Z")
+        )
+        let summaryReads = await http.capturedRequests()
+            .map(\.url.absoluteString)
+            .filter { $0.hasSuffix(AntigravityUsageClient.summaryPath) }
+        XCTAssertEqual(summaryReads, [daily + AntigravityUsageClient.summaryPath])
+    }
+
     func testRefusedTokenIsRenewedOnceAndCached() async throws {
         let files = MemoryFiles()
         let http = RoutedHTTPClient([
@@ -315,7 +454,7 @@ final class AntigravityTests: XCTestCase {
             AntigravityUsageClient.googleOAuthURL.absoluteString: [
                 httpResponse(json: #"{"access_token":"fresh","expires_in":3600}"#)
             ],
-            prod + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
+            daily + AntigravityUsageClient.summaryPath: [httpResponse(json: completeJSON)]
         ])
         let provider = makeProvider(http: http, files: files)
 
@@ -537,6 +676,27 @@ final class AntigravityTests: XCTestCase {
     }
 
     private var completeSummary: Data { Data(completeJSON.utf8) }
+
+    /// Every shared pool full, with a reset one whole window away: how
+    /// production answers for an account whose usage the daily host counts.
+    private var untouchedJSON: String {
+        """
+        {"groups":[
+          {"displayName":"Gemini Models","buckets":[
+            {"bucketId":"gemini-weekly","window":"weekly",
+             "remainingFraction":1,"resetTime":"2027-01-22T00:00:00Z"},
+            {"bucketId":"gemini-5h","window":"5h",
+             "remainingFraction":1,"resetTime":"2027-01-15T05:00:00Z"}
+          ]},
+          {"displayName":"Claude and GPT models","buckets":[
+            {"bucketId":"3p-weekly","window":"weekly",
+             "remainingFraction":1,"resetTime":"2027-01-22T00:00:00Z"},
+            {"bucketId":"3p-5h","window":"5h",
+             "remainingFraction":1,"resetTime":"2027-01-15T05:00:00Z"}
+          ]}
+        ]}
+        """
+    }
 
     private func summary(_ groups: String) -> Data {
         Data(#"{"groups":[\#(groups)]}"#.utf8)

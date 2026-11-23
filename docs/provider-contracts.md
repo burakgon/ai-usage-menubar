@@ -5,8 +5,11 @@ intentionally limited to quota windows that can be fetched from credentials
 the supported tools already store locally.
 
 The reference implementation was OpenUsage `v0.7.6`, its local language-server
-discovery from `v0.7.16`, and provider updates through commit
-`fdf7a234b76b6a71522880cc9ab5b38044471698`. These are undocumented provider
+discovery from `v0.7.16`, provider updates through commit
+`fdf7a234b76b6a71522880cc9ab5b38044471698`, and the Antigravity quota host
+order and client identity from commits
+`ee9815937de6d52ae490f2d8de2412fadc26916d` and
+`e1ffa5712d8aebcc310c598b8f6b7973ad724919`. These are undocumented provider
 endpoints and may change; fixture tests protect the currently known behavior.
 
 ## Claude Code
@@ -217,20 +220,28 @@ renew. A `429` honors `Retry-After`.
 
 ### Antigravity
 
-Cloud Code requests use the Antigravity client's own identity:
-`User-Agent: antigravity/2.24.0 (aidev_client; os_type=darwin; arch=arm64)`
-(`amd64` on Intel). With any other User-Agent, Google answers the quota summary
-without the Gemini group and `loadCodeAssist` without `paidTier`.
+Cloud Code requests use the Antigravity hub client's own identity:
+`User-Agent: antigravity/hub/2.24.0 (aidev_client; os_type=darwin; arch=arm64)`
+(`amd64` on Intel). Google answers by identity: other User-Agents get the quota
+summary without the Gemini group and `loadCodeAssist` without `paidTier`, and
+the IDE identity (`antigravity/2.24.0`) gets it without the Argon group.
 
 1. `POST /v1internal:loadCodeAssist` with
    `{"metadata":{"ideType":"ANTIGRAVITY","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}`,
-   read at most hourly, supplies the plan (`paidTier.id` `g1-pro-tier`,
-   `g1-ultra-tier`, or `g1-ultra-lite-tier`, then the tier name) and
-   `cloudaicompanionProject`.
+   read at most hourly from `cloudcode-pa.googleapis.com`, then
+   `daily-cloudcode-pa.googleapis.com`, supplies the plan (`paidTier.id`
+   `g1-pro-tier`, `g1-ultra-tier`, or `g1-ultra-lite-tier`, then the tier
+   name) and `cloudaicompanionProject`.
 2. `POST /v1internal:retrieveUserQuotaSummary` with `{"project": …}` goes to
-   `cloudcode-pa.googleapis.com` first, then `daily-cloudcode-pa.googleapis.com`
-   unless production already returned all four shared pools. Buckets are merged
-   by id, first answer winning.
+   `daily-cloudcode-pa.googleapis.com` first, then `cloudcode-pa.googleapis.com`
+   unless the daily host already returned all four shared pools. The daily
+   host holds the counters the Antigravity tools show. Production can answer
+   for the same account with every window untouched (`remainingFraction: 1`
+   and a `resetTime` one whole window away), so it only supplies the pools the
+   daily host leaves out or declines to share. Buckets are merged by id, first
+   answer winning. When the daily host cannot be reached or answers `408`,
+   `429`, or a server error, production is not asked in its place: the read
+   fails as temporary and the last reading stays.
 
 `gemini-5h`, `gemini-weekly`, `3p-5h`, and `3p-weekly` map to Session, Weekly,
 Claude, and Claude Weekly. Argon Weekly is the single enabled weekly bucket of
