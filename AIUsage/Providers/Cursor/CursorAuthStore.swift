@@ -2,13 +2,23 @@ import Foundation
 
 struct CursorAuthState: Equatable, Sendable {
     enum Source: Equatable, Sendable {
+        /// The editor's login in Cursor's state database.
         case sqlite
+        /// The Cursor CLI's login in the Keychain.
         case keychain
     }
 
     var accessToken: String?
     let refreshToken: String?
     let source: Source
+}
+
+enum CursorLogin: Equatable, Sendable {
+    case session(CursorAuthState)
+    /// The editor is signed in, but Cursor 3.27 and later seal that login
+    /// with a key only Cursor may read, and there is no Cursor CLI login.
+    case sealedEditorLogin
+    case signedOut
 }
 
 struct CursorAuthStore: Sendable {
@@ -19,6 +29,12 @@ struct CursorAuthStore: Sendable {
     static let membershipTypeKey = "cursorAuth/stripeMembershipType"
     static let accessTokenService = "cursor-access-token"
     static let refreshTokenService = "cursor-refresh-token"
+    /// Cursor 3.27 and later store the editor's tokens as
+    /// `cursor-safe-storage:v1:` plus ciphertext from Electron's safe
+    /// storage. The key is Cursor's own Keychain item, which AI Usage does
+    /// not open, so a sealed value is a login that cannot be read. It is not
+    /// a token, and it is never sent anywhere.
+    static let sealedValuePrefix = "cursor-safe-storage:"
 
     let sqlite: SQLiteValueReading
     let keychain: KeychainAccessing
@@ -34,9 +50,15 @@ struct CursorAuthStore: Sendable {
         self.dateProvider = dateProvider
     }
 
-    func load() -> CursorAuthState? {
-        let sqliteAccess = stateValue(Self.accessTokenKey)
-        let sqliteRefresh = stateValue(Self.refreshTokenKey)
+    func load() -> CursorLogin {
+        let editorAccess = stateValue(Self.accessTokenKey)
+        let editorRefresh = stateValue(Self.refreshTokenKey)
+        // One sealed value means Cursor seals this login. The other is not
+        // used alone: a refreshed token would be written back unsealed.
+        let editorLoginIsSealed =
+            Self.isSealed(editorAccess) || Self.isSealed(editorRefresh)
+        let sqliteAccess = editorLoginIsSealed ? nil : editorAccess
+        let sqliteRefresh = editorLoginIsSealed ? nil : editorRefresh
         let membership = stateValue(Self.membershipTypeKey)?.lowercased()
         let keychainAccess = keychainValue(Self.accessTokenService)
         let keychainRefresh = keychainValue(Self.refreshTokenService)
@@ -49,27 +71,31 @@ struct CursorAuthStore: Sendable {
             if membership == "free",
                subjectsDiffer,
                keychainAccess != nil || keychainRefresh != nil {
-                return CursorAuthState(
+                return .session(CursorAuthState(
                     accessToken: keychainAccess,
                     refreshToken: keychainRefresh,
                     source: .keychain
-                )
+                ))
             }
-            return CursorAuthState(
+            return .session(CursorAuthState(
                 accessToken: sqliteAccess,
                 refreshToken: sqliteRefresh,
                 source: .sqlite
-            )
+            ))
         }
 
         guard keychainAccess != nil || keychainRefresh != nil else {
-            return nil
+            return editorLoginIsSealed ? .sealedEditorLogin : .signedOut
         }
-        return CursorAuthState(
+        return .session(CursorAuthState(
             accessToken: keychainAccess,
             refreshToken: keychainRefresh,
             source: .keychain
-        )
+        ))
+    }
+
+    static func isSealed(_ value: String?) -> Bool {
+        value?.hasPrefix(sealedValuePrefix) == true
     }
 
     func needsRefresh(_ accessToken: String?) -> Bool {
@@ -81,23 +107,14 @@ struct CursorAuthStore: Sendable {
         return expiration.timeIntervalSince(dateProvider.now()) <= 300
     }
 
-    func saveAccessToken(
-        _ token: String,
-        source: CursorAuthState.Source
-    ) throws {
-        switch source {
-        case .sqlite:
-            let sql =
-                "INSERT OR REPLACE INTO ItemTable (key, value) VALUES " +
-                "('\(Self.sqlEscaped(Self.accessTokenKey))', " +
-                "'\(Self.sqlEscaped(token))');"
-            try sqlite.execute(path: Self.stateDatabasePath, sql: sql)
-        case .keychain:
-            try keychain.writeGenericPassword(
-                service: Self.accessTokenService,
-                value: token
-            )
-        }
+    /// Writes a renewed access token back beside the editor's readable
+    /// login. The Cursor CLI's Keychain items are only ever read.
+    func saveEditorAccessToken(_ token: String) throws {
+        let sql =
+            "INSERT OR REPLACE INTO ItemTable (key, value) VALUES " +
+            "('\(Self.sqlEscaped(Self.accessTokenKey))', " +
+            "'\(Self.sqlEscaped(token))');"
+        try sqlite.execute(path: Self.stateDatabasePath, sql: sql)
     }
 
     private func stateValue(_ key: String) -> String? {

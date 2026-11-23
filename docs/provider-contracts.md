@@ -157,7 +157,7 @@ causes at most one refresh and one retry.
 
 | Provider | Local credential source | First-party usage contract | Mapped metrics |
 | --- | --- | --- | --- |
-| Cursor | Cursor state SQLite database, then `cursor-access-token` and `cursor-refresh-token` Keychain items | `api2.cursor.sh` DashboardService Connect RPCs | Total, Auto, API, personal on-demand spend |
+| Cursor | Cursor state SQLite database while its login is readable, then the Cursor CLI's `cursor-access-token` and `cursor-refresh-token` Keychain items | `api2.cursor.sh` DashboardService Connect RPCs | Total, Auto, API, personal on-demand spend |
 | Antigravity | Keychain service `gemini`, account `antigravity` | Google Cloud Code quota summary, then a running Antigravity app or `agy` CLI | Gemini session/weekly, Argon weekly, Claude session/weekly |
 | GitHub Copilot | Copilot editor config, GitHub CLI config, then `gh:github.com` Keychain item | `api.github.com/copilot_internal/user` | Credits, Chat, Completions |
 | Devin | `~/.local/share/devin/credentials.toml`, then Devin state SQLite database | Codeium SeatManagement Connect RPC | Daily, Weekly |
@@ -169,7 +169,9 @@ Cursor, Antigravity, and Grok refresh expiring access tokens using the refresh
 credential already stored by the corresponding tool. Kiro does the same, but
 only with the client registration Kiro itself stored. Refreshed tokens are
 persisted only where necessary; Antigravity's derived access token is cached
-privately by AI Usage and bound to a hash of the current refresh credential.
+privately by AI Usage and bound to a hash of the current refresh credential,
+and an access token renewed from the Cursor CLI's login is kept in memory
+only, for as long as that refresh token is the stored one.
 
 Devin omits a zero `*QuotaRemainingPercent` in proto3 JSON, so a window with a
 reset time and no share is fully used. Grok answers `412` with "no personal
@@ -178,6 +180,28 @@ as `429` or as `403` with `x-ratelimit-remaining: 0` or `Retry-After`; those
 wait until `x-ratelimit-reset` instead of reporting a rejected token. Cursor's
 `spendLimitUsage` is shown as extra usage only for a personal limit or personal
 spend, never for a team's shared pool.
+
+### Cursor
+
+The editor keeps its login in `cursorAuth/accessToken` and
+`cursorAuth/refreshToken` of
+`~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`. Cursor
+3.27 and later seal both values: `cursor-safe-storage:v1:` followed by
+ciphertext from Electron's safe storage, whose key is the `Cursor Safe Storage`
+Keychain item that only trusts Cursor. AI Usage does not open that item or
+decrypt the values. A sealed login is recognized by its prefix, is never used
+as a token or sent in a request, and nothing is written back beside it.
+
+The Cursor CLI keeps its own login in the `cursor-access-token` and
+`cursor-refresh-token` Keychain items after `agent login`. It is used when the
+editor's login is sealed or absent and, as before, when the editor is signed
+in to a free account and the CLI to a different one. Those items are only
+read: when the CLI's access token has expired, AI Usage renews one with the
+CLI's refresh token and keeps it in memory. Cursor's answer carries no new
+refresh token, so there is nothing to write back.
+With a sealed editor login and no CLI login, the card asks for `agent login`.
+An expired CLI session asks for the same, because signing in to the editor
+again does not renew it.
 
 ### Kiro
 
